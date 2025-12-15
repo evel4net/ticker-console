@@ -1,0 +1,4 @@
+Raspberry Pi Pico:
+    https://www.optimusdigital.ro/en/raspberry-pi-boards/12024-raspberry-pi-pico-728886755172.html
+LCD Display with SPI + Controller ILI9341:
+    https://www.optimusdigital.ro/ro/optoelectronice-lcd-uri/3531-modul-lcd-de-24-cu-spi-i-controller-ili9341-240x320-px.html?search_query=ILI9341&results=6
