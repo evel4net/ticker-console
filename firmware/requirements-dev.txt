@@ -1,2 +1,3 @@
 micropython-rp2-stubs
+micropython-rp2-rpi_pico2_w-stubs
 mpremote

@@ -3,7 +3,9 @@ from dependencies.ili9341 import Display
 import utime
 
 from src.repository import Repository
-from src.constants import SCK, MOSI, DC, RESET, CS_DUMMY, WEEKDAYS, PADDING, LINE_SPACING, Font, Color, DATE_DELIMITER, CURSOR
+from src.constants import SCK, MOSI, DC, RESET, CS_DUMMY, WEEKDAYS, PADDING, LINE_SPACING, Font, Color, DATE_DELIMITER, \
+    CURSOR
+from src.config_private import UTC_OFFSET
 from src.task import Task
 import src.utilities as utilities
 
@@ -30,7 +32,8 @@ class LCD_Display(object):
         return f"{WEEKDAYS[local[6]]} {str(local[2])}/{str(local[1])}/{str(local[0])}"
 
     def __time_to_string(self, local):
-        return f"{str(local[3])}:{str(local[4])}:{str(local[5])}"
+        # return f"{str(local[3])}:{str(local[4])}:{str(local[5])}"
+        return f"{str(local[3] + UTC_OFFSET)}:{str(local[4])}"
 
     """DRAW COMPONENTS"""
 
@@ -42,9 +45,7 @@ class LCD_Display(object):
         self.__display.draw_line(pos_x, 0, pos_x, pos_y, Color.WHITE)
 
     def draw_clock(self) -> (int, int):
-        current_local_time = utime.localtime()
-
-        self.__display.draw_text(PADDING, PADDING, self.__time_to_string(current_local_time), Font.DEJAVU, Color.WHITE)
+        self.__display.draw_text(PADDING, PADDING, self.__time_to_string(utime.localtime()), Font.DEJAVU, Color.WHITE)
 
         return PADDING, PADDING + Font.DEJAVU.height + LINE_SPACING
 
@@ -57,7 +58,10 @@ class LCD_Display(object):
         pos_x = int(self.__display.width / 2) + 60
         pos_y = int((PADDING + LINE_SPACING + Font.UNISPACE.height) / 2)
 
-        self.__display.draw_text(pos_x, pos_y, str(self.__repository.get_temperature()) + "C", Font.DEJAVU, Color.WHITE)
+        temperature, precipitation, weather_code = self.__repository.get_weather()
+
+        self.__display.draw_text(pos_x, pos_y, f"{str(temperature)} C", Font.UNISPACE, Color.WHITE)
+        self.__display.draw_text(pos_x, pos_y + Font.UNISPACE.height + 10, f"{str(precipitation)}%", Font.ARCADEPIX, Color.WHITE)
 
     def draw_tasks(self, pos_x, pos_y, tasks: list[tuple[Task, bool]]) -> (int, int):
         for task, is_finished in tasks:
@@ -121,13 +125,15 @@ class LCD_Display(object):
             pos_x += cell_width
 
         # DAYS
-        weekday = 7
-        pos_x = left_top_x + 1 + int((cell_width - Font.UNISPACE.width * 2 - 1) / 2) + (weekday - 1) * cell_width
+        weekday = self.__repository.get_week_day_of_current_month(1)
+
+        pos_x = left_top_x + 1 + int((cell_width - Font.UNISPACE.width * 2 - 1) / 2) + weekday * cell_width
         pos_y += cell_height + 1
 
         current_day = int(self.__repository.get_today().split(DATE_DELIMITER)[0])
+        max_days = self.__repository.get_total_number_days_in_current_month()
 
-        for i in range(30):
+        for i in range(max_days):
             self.__display.draw_text(pos_x, pos_y, str(i + 1), Font.UNISPACE, Color.WHITE)
 
             if i == current_day - 1:

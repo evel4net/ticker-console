@@ -1,6 +1,10 @@
 import json
 import os
+import urequests
+import utime
 
+from src.constants import DATE_DELIMITER, MONTHS
+from src.config_private import LATITUDE, LONGITUDE, TIMEZONE
 from src.task import Task
 from src.day import Day
 
@@ -15,11 +19,13 @@ class Repository(object):
 
         self.__today = "06_12_2025"
 
+        self.__weather_api_url = self.__get_weather_api_url()
+
         self.load_data()
         # self.mockup_data()
-        print(self.__tasks)
-        print(self.__days)
-        print("\n")
+        # print(self.__tasks)
+        # print(self.__days)
+        # print("\n")
 
         # print(self.get_today())
         # print(self.get_weekday())
@@ -150,20 +156,69 @@ class Repository(object):
 
         # print(self.__days)
 
-    # --- TESTS
+    # --- API
+
+    def __get_weather_api_url(self) -> str:
+        api_url = "https://api.open-meteo.com/v1/forecast"
+
+        parameters = {
+            "latitude": LATITUDE,
+            "longitude": LONGITUDE,
+            "current": "temperature_2m,precipitation_probability,weather_code",
+            "timezone": TIMEZONE,
+            "forecast_days": 1,
+        }
+
+        request_url = api_url + "?"
+        for k, v in parameters.items():
+            request_url += f"{str(k)}={str(v)}&"
+
+        return request_url[:-1]
+
+    def get_weather(self) -> (float, int, int):
+        response = urequests.get(self.__weather_api_url)
+
+        data = response.json()
+
+        response.close()
+
+        temperature = data['current']['temperature_2m']
+        precipitation = data['current']['precipitation_probability']
+        weather_code = data['current']['weather_code']
+
+        print(f"Temperature = {temperature} C, Precipitation = {precipitation}%, Weather Code = {weather_code}")
+
+        return (temperature, precipitation, weather_code)
+
+    # --- DATE TIME
 
     def get_current_month(self) -> str:
-        return "December"
+        return MONTHS[int(self.__today.split(DATE_DELIMITER)[1])]
 
-    def get_current_month_first_weekday(self) -> int:
-        return 3
+    def set_today(self):
+        date_time = utime.localtime()
+
+        self.__today = f"{date_time[2]}{DATE_DELIMITER}{date_time[1]}{DATE_DELIMITER}{date_time[0]}"
 
     def get_today(self) -> str:
         # return str(self.__today)
         return self.__today
 
-    def get_weekday(self) -> str:
-        return "Monday"
+    def get_total_number_days_in_current_month(self) -> int:
+        max_days = 31
+        current_date_time = utime.localtime()
+        date_time = utime.mktime((current_date_time[0], current_date_time[1], max_days, 0, 0, 0, 0, 0))
+        new_date_time = utime.localtime(date_time)
 
-    def get_temperature(self):
-        return 12
+        if new_date_time[1] != current_date_time[1]:
+            max_days -= new_date_time[2]
+
+        return max_days
+
+    def get_week_day_of_current_month(self, day: int) -> int:
+        data = self.__today.split(DATE_DELIMITER)
+
+        week_day_date_time = utime.mktime((int(data[2]), int(data[1]), day, 0, 0, 0, 0, 0))
+        date_time = utime.localtime(week_day_date_time)
+
+        return date_time[6]

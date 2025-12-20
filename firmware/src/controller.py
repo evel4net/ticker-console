@@ -79,6 +79,8 @@ class Controller(object):
             sleep(0.05)
 
     def __draw(self):
+        self.__change_screen = False
+
         start_pos_x, start_pos_y = -1, -1
 
         if self.__screen_index < 0:
@@ -88,8 +90,6 @@ class Controller(object):
         else:
             start_pos_x, start_pos_y = self.__display.day_screen(self.__current_day)
             self.__row_index = -1
-
-        self.__change_screen = False
 
         if self.__screen_index == 0:  # refresh clock
             while not self.__change_screen:

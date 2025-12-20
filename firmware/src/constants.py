@@ -27,15 +27,14 @@ class Color:
     BLACK = color565(0, 0, 0)
     GREY = color565(100, 100, 100)
     RED = color565(255, 0, 0)
-    # GREEN = color565(36, 49, 38)
     GREEN = color565(138, 154, 91)
-    # GREEN = color565(19, 80, 41)
 
 # DISPLAY
 PADDING = 10
 LINE_SPACING = 10
 CURSOR = '*'
 
-# UTILS
-WEEKDAYS = {0: "Monday", 1: "Tuesday", 2: "Wednesday", 3: "Thursday", 4: "Friday", 5: "Saturday", 6: "Sunday"}
+# DATE TIME
+WEEKDAYS = {0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu", 4: "Fri", 5: "Sat", 6: "Sun"}
+MONTHS = {1: "January", 2: "February", 3: "March", 4: "April", 5: "May", 6: "June", 7: "July", 8: "August", 9: "September", 10: "October", 11: "November", 12: "December"}
 DATE_DELIMITER = '_'
