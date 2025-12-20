@@ -1,10 +1,10 @@
 import utime
 
-from src.constants import DATE_DELIMITER
 import src.utilities as utilities
+from src.utilities import Date
 
 class Task(object):
-    def __init__(self, description: str, start_date: str, end_date: str, id: str = None): # TODO validate params here or outside?
+    def __init__(self, description: str, start_date: Date, end_date: Date, id: str = None) -> None: # TODO validate params here or outside?
         if id is None:
             id = self.__generate_id()
 
@@ -30,48 +30,40 @@ class Task(object):
         self.__description = new_description
 
     @property
-    def start_date(self) -> str:
+    def start_date(self) -> Date:
         return self.__start_date
 
     @start_date.setter
-    def start_date(self, new_start_date: str) -> None:
+    def start_date(self, new_start_date: Date) -> None:
         self.__start_date = new_start_date
 
     @property
-    def end_date(self) -> str:
+    def end_date(self) -> Date:
         return self.__end_date
 
     @end_date.setter
-    def end_date(self, new_end_date: str) -> None:
+    def end_date(self, new_end_date: Date) -> None:
         self.__end_date = new_end_date
 
-    def get_dates(self) -> list[str]:
-        # dates = [self.__start_date]
-
-        # if self.__end_date != self.__start_date:
-        start_date_args = self.__start_date.split(DATE_DELIMITER)
-        end_date_args = self.__end_date.split(DATE_DELIMITER)
-
+    def get_dates(self) -> list[Date]:
         day_index = 0
         month_index = 1
         year_index = 2
 
-        return utilities.get_dates_between_years(int(start_date_args[day_index]), int(start_date_args[month_index]), int(start_date_args[year_index]),
-                                                     int(end_date_args[day_index]), int(end_date_args[month_index]), int(end_date_args[year_index]))
-
-        # return dates
+        return utilities.get_dates_between_years(int(self.__start_date[day_index]), int(self.__start_date[month_index]), int(self.__start_date[year_index]),
+                                                     int(self.__end_date[day_index]), int(self.__end_date[month_index]), int(self.__end_date[year_index]))
 
     def __str__(self) -> str:
         return self.__description
 
     def __repr__(self) -> str:
-        return f"Task(id={self.__id}, description={self.__description}, start_date={self.__start_date}, end_date={self.__end_date})"
+        return f"Task(id={self.__id}, description={self.__description}, start_date={utilities.date_tuple_to_str(self.__start_date)}, end_date={utilities.date_tuple_to_str(self.__end_date)})"
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return isinstance(other, Task) and self.__id == other.id
 
-    def __hash__(self):
+    def __hash__(self) -> hash:
         return hash(self.__id)
 
-    def to_json(self):
-        return {"id": self.__id, "description": self.__description, "start_date": self.__start_date, "end_date": self.__end_date}
+    def to_json(self) -> dict:
+        return {"id": self.__id, "description": self.__description, "start_date": utilities.date_tuple_to_str(self.__start_date), "end_date": utilities.date_tuple_to_str(self.__end_date)}

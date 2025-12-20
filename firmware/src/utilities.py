@@ -1,20 +1,26 @@
+import collections
+
 from src.constants import DATE_DELIMITER
 
-def ints_to_date(day: int, month: int, year: int):
-    return f"{"0" + str(day) if day < 10 else str(day)}{DATE_DELIMITER}{"0" + str(month) if month < 10 else str(month)}{DATE_DELIMITER}{year}"
+Date = collections.namedtuple('Date', ('day', 'month', 'year'))
 
-def pretty_format_date(date: str, new_delimiter: str) -> str:
-    return date.replace(DATE_DELIMITER, new_delimiter)
+def date_tuple_to_str(date: Date, delimiter: str = DATE_DELIMITER) -> str:
+    return f"{"0" + str(date[0]) if date[0] < 10 else str(date[0])}{delimiter}{"0" + str(date[1]) if date[1] < 10 else str(date[1])}{delimiter}{date[2]}"
 
-def get_dates_between_days(first_day, last_day, month, year):
+def date_str_to_tuple(date: str) -> Date:
+    day, month, year = map(int, date.split(DATE_DELIMITER))
+
+    return day, month, year
+
+def get_dates_between_days(first_day: int, last_day: int, month: int, year: int) -> list[Date]:
     dates = []
 
     for d in range(first_day, last_day + 1):
-        dates.append(ints_to_date(d, month, year))
+        dates.append(Date(d, month, year))
 
     return dates
 
-def get_dates_between_months(first_day, first_month, last_day, last_month, year):
+def get_dates_between_months(first_day: int, first_month: int, last_day: int, last_month: int, year: int) -> list[Date]:
     dates = []
 
     month = first_month
@@ -34,7 +40,7 @@ def get_dates_between_months(first_day, first_month, last_day, last_month, year)
 
     return dates
 
-def get_dates_between_years(first_day, first_month, first_year, last_day, last_month, last_year):
+def get_dates_between_years(first_day: int, first_month: int, first_year: int, last_day: int, last_month: int, last_year: int) -> list[Date]:
     dates = []
 
     year = first_year
@@ -59,11 +65,11 @@ def get_dates_between_years(first_day, first_month, first_year, last_day, last_m
 
     return dates
 
-def get_next_day(date: str) -> str:
-    date_args = date.split(DATE_DELIMITER)
-    day = int(date_args[0]) + 1
-    month = int(date_args[1])
-    year = int(date_args[2])
+def get_next_day(date: Date) -> Date:
+    day = date.day + 1
+    month = date.month
+    year = date.year
+
     if day > 30: #TODO
         day = 1
         month += 1
@@ -72,13 +78,12 @@ def get_next_day(date: str) -> str:
             month = 1
             year += 1
 
-    return ints_to_date(day, month, year)
+    return Date(day, month, year)
 
-def get_previous_day( date: str) -> str:
-    date_args = date.split(DATE_DELIMITER)
-    day = int(date_args[0]) - 1
-    month = int(date_args[1])
-    year = int(date_args[2])
+def get_previous_day(date: Date) -> Date:
+    day = date.day - 1
+    month = date.month
+    year = date.year
 
     if day < 1:
         day = 30 # TODO
@@ -88,4 +93,4 @@ def get_previous_day( date: str) -> str:
             month = 12
             year -= 1
 
-    return ints_to_date(day, month, year)
+    return Date(day, month, year)

@@ -14,7 +14,7 @@ from src.config_private import SSID, PASSWORD
 LED_PIN = Pin(LED, Pin.OUT)
 LED_PIN.value(0)
 
-def connect_wifi():
+def connect_wifi() -> None:
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     wlan.connect(SSID, PASSWORD)
@@ -33,12 +33,12 @@ def connect_wifi():
 
     print(wlan.ifconfig())
 
-def sync_time():
+def sync_time() -> None:
     print("Syncing time...")
     ntptime.settime()
 
 connect_wifi()
-# sync_time()
+sync_time()
 
 repository = Repository()
 display = LCD_Display(repository)

@@ -1,5 +1,8 @@
+import src.utilities as utilities
+from src.utilities import Date
+
 class Day(object):
-    def __init__(self, date: str, task_ids: list[str] = None, status: list[bool] = None): # TODO validate date here or outside?
+    def __init__(self, date: Date, task_ids: list[str] = None, status: list[bool] = None) -> None:  # TODO validate date here or outside?
         self.__date = date
 
         if task_ids is None:
@@ -11,7 +14,7 @@ class Day(object):
         self.__is_finished_status = status
 
     @property
-    def date(self) -> str:
+    def date(self) -> Date:
         return self.__date
 
     @property
@@ -47,10 +50,10 @@ class Day(object):
         self.__is_finished_status[index] = True
 
     def __str__(self) -> str:
-        return f"{self.__date}: {self.__task_ids}, {self.__is_finished_status}"
+        return f"{utilities.date_tuple_to_str(self.__date)}: {self.__task_ids}, {self.__is_finished_status}"
 
     def __repr__(self) -> str:
-        return f"Day(date={self.__date}, task_ids={self.__task_ids}, is_finished_status={self.__is_finished_status})"
+        return f"Day(date={utilities.date_tuple_to_str(self.__date)}, task_ids={self.__task_ids}, is_finished_status={self.__is_finished_status})"
 
-    def to_json(self):
-        return {"date": self.__date, "task_ids": self.__task_ids, "is_finished_status": self.__is_finished_status}
+    def to_json(self) -> dict:
+        return {"date": utilities.date_tuple_to_str(self.__date), "task_ids": self.__task_ids, "is_finished_status": self.__is_finished_status}

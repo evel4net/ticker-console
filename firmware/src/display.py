@@ -8,10 +8,10 @@ from src.constants import SCK, MOSI, DC, RESET, CS_DUMMY, WEEKDAYS, PADDING, LIN
 from src.config_private import UTC_OFFSET
 from src.task import Task
 import src.utilities as utilities
-
+from src.utilities import Date
 
 class LCD_Display(object):
-    def __init__(self, repository: Repository):
+    def __init__(self, repository: Repository) -> None:
         self.__repository = repository
 
         spi = SPI(1,  # SPI channel 1
@@ -28,12 +28,17 @@ class LCD_Display(object):
 
     """UTILS"""
 
-    def __date_to_string(self, local):
-        return f"{WEEKDAYS[local[6]]} {str(local[2])}/{str(local[1])}/{str(local[0])}"
+    def __date_to_string(self, local) -> str:
+        return f"{WEEKDAYS[local[6]]} {utilities.date_tuple_to_str(Date(str(local[2]), str(local[1]), str(local[0])), "/")}"
 
-    def __time_to_string(self, local):
+    def __time_to_string(self, local) -> str:
         # return f"{str(local[3])}:{str(local[4])}:{str(local[5])}"
-        return f"{str(local[3] + UTC_OFFSET)}:{str(local[4])}"
+        hours = local[3] + UTC_OFFSET
+        minutes = local[4]
+        return f"{"0" + str(hours) if hours < 10 else str(hours)}:{"0" + str(minutes) if minutes < 10 else str(minutes)}"
+
+    def __local_to_date(self, local) -> Date:
+        return Date(local[2], local[1], local[0])
 
     """DRAW COMPONENTS"""
 
@@ -49,8 +54,8 @@ class LCD_Display(object):
 
         return PADDING, PADDING + Font.DEJAVU.height + LINE_SPACING
 
-    def draw_date(self, pos_x, pos_y, date: str) -> (int, int):
-        self.__display.draw_text(pos_x, pos_y, utilities.pretty_format_date(date, '/'), Font.UNISPACE, Color.WHITE)
+    def draw_date(self, pos_x, pos_y, date: Date) -> (int, int):
+        self.__display.draw_text(pos_x, pos_y, utilities.date_tuple_to_str(date, '/'), Font.UNISPACE, Color.WHITE)
 
         return pos_x, pos_y + Font.UNISPACE.height + LINE_SPACING
 
@@ -74,7 +79,7 @@ class LCD_Display(object):
 
         return pos_x, pos_y
 
-    def draw_task_line(self, start_pos_x: int, start_pos_y: int, day: str, task_index: int) -> (int, int):
+    def draw_task_line(self, start_pos_x: int, start_pos_y: int, day: Date, task_index: int) -> (int, int):
         task = self.__repository.get_task_by_index(day, task_index)
 
         pos_y = start_pos_y + task_index * (Font.ARCADEPIX.height + LINE_SPACING) + int(Font.ARCADEPIX.height / 2)
@@ -83,7 +88,7 @@ class LCD_Display(object):
 
         return start_pos_x, pos_y + int(Font.ARCADEPIX.height / 2) + LINE_SPACING
 
-    def draw_text_cursor(self, start_pos_x, start_pos_y, task_index, cursor_color: Color) -> (int, int):
+    def draw_text_cursor(self, start_pos_x: int, start_pos_y: int, task_index: int, cursor_color: Color) -> (int, int):
         pos_y = start_pos_y + task_index * (Font.ARCADEPIX.height + LINE_SPACING)
 
         self.__display.draw_text(start_pos_x, pos_y, CURSOR, Font.ARCADEPIX, color=cursor_color)
@@ -130,7 +135,7 @@ class LCD_Display(object):
         pos_x = left_top_x + 1 + int((cell_width - Font.UNISPACE.width * 2 - 1) / 2) + weekday * cell_width
         pos_y += cell_height + 1
 
-        current_day = int(self.__repository.get_today().split(DATE_DELIMITER)[0])
+        current_day = self.__repository.get_today().day
         max_days = self.__repository.get_total_number_days_in_current_month()
 
         for i in range(max_days):
@@ -153,7 +158,7 @@ class LCD_Display(object):
 
         self.draw_main_frame()
         current_pos_x, current_pos_y = self.draw_clock()
-        current_pos_x, current_pos_y = self.draw_date(current_pos_x, current_pos_y, self.__date_to_string(utime.localtime()))
+        current_pos_x, current_pos_y = self.draw_date(current_pos_x, current_pos_y, self.__local_to_date(utime.localtime()))
         self.draw_tasks(current_pos_x, current_pos_y + 3 * LINE_SPACING, self.__repository.get_unfinished_tasks_by_day(self.__repository.get_today()))
         self.draw_weather()
 
@@ -165,7 +170,7 @@ class LCD_Display(object):
         self.__display.draw_text(PADDING, PADDING, self.__repository.get_current_month(), Font.UNISPACE, Color.WHITE)
         self.draw_calendar()
 
-    def day_screen(self, day: str) -> (int, int):
+    def day_screen(self, day: Date) -> (int, int):
         self.__display.clear()
 
         current_pos_x, current_pos_y = self.draw_date(PADDING, PADDING, day)
