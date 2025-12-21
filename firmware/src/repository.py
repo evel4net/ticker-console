@@ -3,7 +3,7 @@ import os
 import urequests
 import utime
 
-from src.constants import DATE_DELIMITER, MONTHS
+from src.constants import DATE_DELIMITER, MONTHS, WEATHER_CODES
 from src.config_private import LATITUDE, LONGITUDE, TIMEZONE
 from src.task import Task
 from src.day import Day
@@ -12,6 +12,8 @@ from src.utilities import Date
 
 class Repository(object):
     def __init__(self) -> None:
+        self.__weather_api_url = self.__get_weather_api_url()
+
         self.__days_path = "./logs/days"
         self.__tasks_path = "./logs/tasks"
         self.__errors_file_path = './logs/errors.txt'
@@ -20,9 +22,13 @@ class Repository(object):
         self.__tasks = {} # task_id: Task
 
         self.__today = None
+        self.__temperature = None
+        self.__precipitation = None
+        self.__weather_code = None
+        self.__is_day = None
         self.set_today()
+        self.set_weather()
 
-        self.__weather_api_url = self.__get_weather_api_url()
 
         self.load_data()
         # self.dummy_data()
@@ -61,7 +67,7 @@ class Repository(object):
                 tasks = day["task_ids"]
                 status = day["is_finished_status"]
 
-                self.__days[date] = Day(utilities.date_str_to_tuple(date), tasks, status)
+                self.__days[utilities.date_str_to_tuple(date)] = Day(utilities.date_str_to_tuple(date), tasks, status)
 
         for filename in os.listdir(self.__tasks_path):
             filepath = self.__tasks_path + "/" + filename
@@ -74,7 +80,7 @@ class Repository(object):
                 start_date = task["start_date"]
                 end_date = task["end_date"]
 
-                self.__tasks[id] = Task(description, utilities.date_str_to_tuple(start_date), utilities.date_tuple_to_str(end_date), id)
+                self.__tasks[id] = Task(description, utilities.date_str_to_tuple(start_date), utilities.date_str_to_tuple(end_date), id)
 
     def save_day(self, day: Day) -> None:
         filepath = self.__days_path + "/" + utilities.date_tuple_to_str(day.date) + ".json"
@@ -167,7 +173,7 @@ class Repository(object):
         parameters = {
             "latitude": LATITUDE,
             "longitude": LONGITUDE,
-            "current": "temperature_2m,precipitation_probability,weather_code",
+            "current": "temperature_2m,precipitation_probability,weather_code,is_day",
             "timezone": TIMEZONE,
             "forecast_days": 1,
         }
@@ -178,20 +184,20 @@ class Repository(object):
 
         return request_url[:-1]
 
-    def get_weather(self) -> (float, int, int):
+    def get_weather(self) -> (float, int, int, bool):
+        return self.__temperature, self.__precipitation, self.__weather_code, self.__is_day
+
+    def set_weather(self): # TODO call set_weather every 30 min
         response = urequests.get(self.__weather_api_url)
 
         data = response.json()
 
         response.close()
 
-        temperature = data['current']['temperature_2m']
-        precipitation = data['current']['precipitation_probability']
-        weather_code = data['current']['weather_code']
-
-        print(f"Temperature = {temperature} C, Precipitation = {precipitation}%, Weather Code = {weather_code}")
-
-        return (temperature, precipitation, weather_code)
+        self.__temperature = data['current']['temperature_2m']
+        self.__precipitation = data['current']['precipitation_probability']
+        self.__weather_code = data['current']['weather_code']
+        self.__is_day = data['current']['is_day']
 
     """DATE TIME"""
 

@@ -38,7 +38,7 @@ def sync_time() -> None:
     ntptime.settime()
 
 connect_wifi()
-sync_time()
+# sync_time()
 
 repository = Repository()
 display = LCD_Display(repository)

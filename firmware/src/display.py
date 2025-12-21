@@ -1,10 +1,12 @@
+import os
+
 from machine import Pin, SPI
 from dependencies.ili9341 import Display
 import utime
 
 from src.repository import Repository
 from src.constants import SCK, MOSI, DC, RESET, CS_DUMMY, WEEKDAYS, PADDING, LINE_SPACING, Font, Color, DATE_DELIMITER, \
-    CURSOR
+    CURSOR, WEATHER_CODES
 from src.config_private import UTC_OFFSET
 from src.task import Task
 import src.utilities as utilities
@@ -28,13 +30,13 @@ class LCD_Display(object):
 
     """UTILS"""
 
-    def __date_to_string(self, local) -> str:
-        return f"{WEEKDAYS[local[6]]} {utilities.date_tuple_to_str(Date(str(local[2]), str(local[1]), str(local[0])), "/")}"
+    def __local_to_string(self, local) -> str:
+        return f"{WEEKDAYS[local[6]]} {utilities.date_tuple_to_str(Date(local[2], local[1], local[0]), "/")}"
 
     def __time_to_string(self, local) -> str:
-        # return f"{str(local[3])}:{str(local[4])}:{str(local[5])}"
         hours = local[3] + UTC_OFFSET
         minutes = local[4]
+
         return f"{"0" + str(hours) if hours < 10 else str(hours)}:{"0" + str(minutes) if minutes < 10 else str(minutes)}"
 
     def __local_to_date(self, local) -> Date:
@@ -43,10 +45,12 @@ class LCD_Display(object):
     """DRAW COMPONENTS"""
 
     def draw_main_frame(self) -> None:
-        pos_y = PADDING + Font.DEJAVU.height + Font.UNISPACE.height + 3 * LINE_SPACING
+        # pos_y = PADDING + Font.DEJAVU.height + Font.UNISPACE.height + 3 * LINE_SPACING
+        pos_y = PADDING + Font.DEJAVU.height + LINE_SPACING + Font.UNISPACE.height + PADDING
         self.__display.draw_line(0, pos_y, self.__display.width - 1, pos_y, Color.WHITE)
 
-        pos_x = int(self.__display.width / 2) + 40
+        # pos_x = int(self.__display.width / 2) + 20
+        pos_x = 188
         self.__display.draw_line(pos_x, 0, pos_x, pos_y, Color.WHITE)
 
     def draw_clock(self) -> (int, int):
@@ -54,19 +58,32 @@ class LCD_Display(object):
 
         return PADDING, PADDING + Font.DEJAVU.height + LINE_SPACING
 
-    def draw_date(self, pos_x, pos_y, date: Date) -> (int, int):
-        self.__display.draw_text(pos_x, pos_y, utilities.date_tuple_to_str(date, '/'), Font.UNISPACE, Color.WHITE)
+    def draw_date(self, pos_x, pos_y, date_text: str) -> (int, int):
+        self.__display.draw_text(pos_x, pos_y, date_text, Font.UNISPACE, Color.WHITE)
 
         return pos_x, pos_y + Font.UNISPACE.height + LINE_SPACING
 
     def draw_weather(self) -> None:
-        pos_x = int(self.__display.width / 2) + 60
-        pos_y = int((PADDING + LINE_SPACING + Font.UNISPACE.height) / 2)
+        pos_x = 188 + PADDING
 
-        temperature, precipitation, weather_code = self.__repository.get_weather()
+        temperature, precipitation, weather_code, is_day = self.__repository.get_weather()
 
-        self.__display.draw_text(pos_x, pos_y, f"{str(temperature)} C", Font.UNISPACE, Color.WHITE)
-        self.__display.draw_text(pos_x, pos_y + Font.UNISPACE.height + 10, f"{str(precipitation)}%", Font.ARCADEPIX, Color.WHITE)
+        pos_y = PADDING + int((Font.DEJAVU.height - Font.UNISPACE.height) / 2)
+        self.__display.draw_text(pos_x, pos_y, f"{temperature}*C", Font.UNISPACE, Color.WHITE)
+
+        pos_y = PADDING + Font.DEJAVU.height + LINE_SPACING + int((Font.UNISPACE.height - Font.ARCADEPIX.height) / 2)
+        self.__display.draw_text(pos_x + 12 + PADDING - 1, pos_y, f"{precipitation}%", Font.ARCADEPIX, Color.WHITE)
+
+        pos_y = PADDING + Font.DEJAVU.height + LINE_SPACING + int((Font.UNISPACE.height - 16) / 2)
+        self.__display.draw_image("icons/raindrop.raw", pos_x, pos_y, 12, 16)
+
+        pos_x = self.__display.width - 64
+        pos_y = int((PADDING * 2 + LINE_SPACING + Font.DEJAVU.height + Font.UNISPACE.height - 64) / 2)
+
+        try:
+            self.__display.draw_image(f"icons/{WEATHER_CODES[weather_code][is_day]}.raw", pos_x, pos_y, 64, 64)
+        except OSError:
+            self.__display.draw_image(f"icons/na.raw", pos_x, pos_y, 64, 64)
 
     def draw_tasks(self, pos_x, pos_y, tasks: list[tuple[Task, bool]]) -> (int, int):
         for task, is_finished in tasks:
@@ -158,8 +175,8 @@ class LCD_Display(object):
 
         self.draw_main_frame()
         current_pos_x, current_pos_y = self.draw_clock()
-        current_pos_x, current_pos_y = self.draw_date(current_pos_x, current_pos_y, self.__local_to_date(utime.localtime()))
-        self.draw_tasks(current_pos_x, current_pos_y + 3 * LINE_SPACING, self.__repository.get_unfinished_tasks_by_day(self.__repository.get_today()))
+        current_pos_x, current_pos_y = self.draw_date(current_pos_x, current_pos_y, self.__local_to_string(utime.localtime()))
+        self.draw_tasks(current_pos_x, current_pos_y + LINE_SPACING, self.__repository.get_unfinished_tasks_by_day(self.__repository.get_today()))
         self.draw_weather()
 
         return current_pos_x, current_pos_y + 3 * LINE_SPACING
@@ -173,7 +190,7 @@ class LCD_Display(object):
     def day_screen(self, day: Date) -> (int, int):
         self.__display.clear()
 
-        current_pos_x, current_pos_y = self.draw_date(PADDING, PADDING, day)
+        current_pos_x, current_pos_y = self.draw_date(PADDING, PADDING, utilities.date_tuple_to_str(day, '/'))
 
         self.__display.draw_line(0, current_pos_y, self.__display.width - 1, current_pos_y, Color.WHITE)
 

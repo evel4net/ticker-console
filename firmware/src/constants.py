@@ -38,3 +38,119 @@ CURSOR = '*'
 WEEKDAYS = {0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu", 4: "Fri", 5: "Sat", 6: "Sun"}
 MONTHS = {1: "January", 2: "February", 3: "March", 4: "April", 5: "May", 6: "June", 7: "July", 8: "August", 9: "September", 10: "October", 11: "November", 12: "December"}
 DATE_DELIMITER = '_'
+
+# WEATHER
+WEATHER_CODES = {
+    0: {
+        0: "night-clear",
+        1: "day-clear"
+    },
+    1: {
+        0: "night-cloudy",
+        1: "day-cloudy"
+    },
+    2: {
+        0: "night-cloudy",
+        1: "day-cloudy"
+    },
+    3: {
+        0: "overcast",
+        1: "overcast"
+    },
+    45: {
+        0: "fog",
+        1: "fog"
+    },
+    48: {
+        0: "fog",
+        1: "fog"
+    },
+    51: {
+        0: "showers",
+        1: "showers"
+    },
+    52: {
+        0: "showers",
+        1: "showers"
+    },
+    55: {
+        0: "showers",
+        1: "showers"
+    },
+    56: {
+        0: "showers",
+        1: "showers"
+    },
+    57: {
+        0: "showers",
+        1: "showers"
+    },
+    61: {
+        0: "rain",
+        1: "rain"
+    },
+    63: {
+        0: "rain",
+        1: "rain"
+    },
+    65: {
+        0: "rain",
+        1: "rain"
+    },
+    66: {
+        0: "rain",
+        1: "rain"
+    },
+    67: {
+        0: "rain",
+        1: "rain"
+    },
+    71: {
+        0: "night-snow",
+        1: "day-snow"
+    },
+    73: {
+        0: "night-snow",
+        1: "day-snow"
+    },
+    75: {
+        0: "night-snow",
+        1: "day-snow"
+    },
+    77: {
+        0: "night-snow",
+        1: "day-snow"
+    },
+    80: {
+        0: "showers",
+        1: "showers"
+    },
+    81: {
+        0: "showers",
+        1: "showers"
+    },
+    82: {
+        0: "showers",
+        1: "showers"
+    },
+    85: {
+        0: "night-snow",
+        1: "day-snow"
+    },
+    86: {
+        0: "night-snow",
+        1: "day-snow"
+    },
+    95: {
+        0: "thunderstorm",
+        1: "thunderstorm"
+    },
+    96: {
+        0: "thunderstorm",
+        1: "thunderstorm"
+    },
+    99: {
+        0: "thunderstorm",
+        1: "thunderstorm"
+    }
+}
