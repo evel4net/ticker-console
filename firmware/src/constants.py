@@ -40,7 +40,7 @@ MONTHS = {1: "January", 2: "February", 3: "March", 4: "April", 5: "May", 6: "Jun
 DATE_DELIMITER = '_'
 
 # WEATHER
-WEATHER_CODES = {
+WEATHERS = {
     0: {
         0: "night-clear",
         1: "day-clear"

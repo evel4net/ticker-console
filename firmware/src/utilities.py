@@ -94,3 +94,8 @@ def get_previous_day(date: Date) -> Date:
             year -= 1
 
     return Date(day, month, year)
+
+def get_seconds_until_midnight(hour: int, minute: int, second: int) -> int:
+    seconds_passed = hour * 3600 + minute * 60 + second
+
+    return 86400 - seconds_passed

@@ -1,10 +1,13 @@
+import utime
 from machine import Pin
 from utime import sleep
 
+from src.date_manager import DateManager
 from src.repository import Repository
 from src.constants import LED, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP, BUTTON_DOWN, Color
 from src.display import LCD_Display
 import src.utilities as utilities
+from src.weather_manager import WeatherManager
 
 LED_PIN = Pin(LED, Pin.OUT)
 LED_PIN.value(0)
@@ -15,16 +18,19 @@ BUTTON_MARK_PIN = Pin(BUTTON_UP, Pin.IN, Pin.PULL_DOWN)
 BUTTON_DOWN_PIN = Pin(BUTTON_DOWN, Pin.IN, Pin.PULL_DOWN)
 
 class Controller(object):
-    def __init__(self, repository: Repository, display: LCD_Display) -> None:
+    def __init__(self, repository: Repository, display: LCD_Display, weather_manager: WeatherManager, date_manager: DateManager) -> None:
         self.__repository = repository
         self.__display = display
+        self.__weather_manager = weather_manager
+        self.__date_manager = date_manager
+
         self.__screen_index = 0
         self.__row_index = -1
         self.__change_screen = False
         self.__go_next_row = False
         self.__mark_task = False
 
-        self.__current_day = self.__repository.get_today()
+        self.__current_day = self.__date_manager.get_today()
 
         self.setup()
 
@@ -86,9 +92,9 @@ class Controller(object):
         if self.__screen_index < 0:
             self.__display.calendar_screen()
         elif self.__screen_index == 0:
-            self.__display.main_screen()
+            self.__display.main_screen(self.__repository.get_unfinished_tasks_by_day(self.__current_day))
         else:
-            start_pos_x, start_pos_y = self.__display.day_screen(self.__current_day)
+            start_pos_x, start_pos_y = self.__display.day_screen(self.__current_day, self.__repository.get_all_tasks_by_day(self.__current_day))
             self.__row_index = -1
 
         if self.__screen_index == 0:  # refresh clock
@@ -96,6 +102,19 @@ class Controller(object):
                 self.__display.draw_clock()
 
                 sleep(0.1)
+
+                # if self.__current_day != self.__date_manager.get_today(): # refresh with new date
+                #     print("redraw main screen with new date")
+                #     self.__current_day = self.__date_manager.get_today()
+                #     self.__change_screen = True
+
+                if self.__date_manager.refresh_today(): # refresh main screen with new date
+                    self.__current_day = self.__date_manager.get_today()
+                    self.__change_screen = True
+
+                if self.__weather_manager.refresh_weather(): # refresh weather after 30 mins
+                    print("redraw weather")
+                    self.__display.draw_weather()
 
         if self.__screen_index > 0:
             while not self.__change_screen:
@@ -125,7 +144,7 @@ class Controller(object):
 
     def __mark_task_finished(self, start_pos_x: int, start_pos_y: int) -> None:
         if not self.__repository.is_task_finished(self.__current_day, self.__row_index):
-            self.__display.draw_task_line(start_pos_x, start_pos_y, self.__current_day, self.__row_index)
+            self.__display.draw_task_line(start_pos_x, start_pos_y, self.__row_index, len(self.__repository.get_task_by_index(self.__current_day, self.__row_index).description))
             self.__repository.set_task_finished(self.__current_day, self.__row_index)
 
         sleep(0.1)

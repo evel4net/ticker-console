@@ -6,10 +6,12 @@ import utime
 import ntptime
 
 from src.controller import Controller
+from src.date_manager import DateManager
 from src.repository import Repository
 from src.display import LCD_Display
 from src.constants import LED
 from src.config_private import SSID, PASSWORD
+from src.weather_manager import WeatherManager
 
 LED_PIN = Pin(LED, Pin.OUT)
 LED_PIN.value(0)
@@ -37,11 +39,13 @@ def sync_time() -> None:
     print("Syncing time...")
     ntptime.settime()
 
-connect_wifi()
+# connect_wifi()
 # sync_time()
 
 repository = Repository()
-display = LCD_Display(repository)
-controller = Controller(repository, display)
+weather_manager = WeatherManager()
+date_manager = DateManager()
+display = LCD_Display(weather_manager, date_manager)
+controller = Controller(repository, display, weather_manager, date_manager)
 
 controller.start_display()

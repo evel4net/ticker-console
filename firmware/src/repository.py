@@ -1,10 +1,6 @@
 import json
 import os
-import urequests
-import utime
 
-from src.constants import DATE_DELIMITER, MONTHS, WEATHER_CODES
-from src.config_private import LATITUDE, LONGITUDE, TIMEZONE
 from src.task import Task
 from src.day import Day
 import src.utilities as utilities
@@ -12,23 +8,12 @@ from src.utilities import Date
 
 class Repository(object):
     def __init__(self) -> None:
-        self.__weather_api_url = self.__get_weather_api_url()
-
         self.__days_path = "./logs/days"
         self.__tasks_path = "./logs/tasks"
         self.__errors_file_path = './logs/errors.txt'
 
         self.__days = {} # Date(day, month, year): Day
         self.__tasks = {} # task_id: Task
-
-        self.__today = None
-        self.__temperature = None
-        self.__precipitation = None
-        self.__weather_code = None
-        self.__is_day = None
-        self.set_today()
-        self.set_weather()
-
 
         self.load_data()
         # self.dummy_data()
@@ -164,66 +149,3 @@ class Repository(object):
         self.save_day(day)
 
         # print(self.__days)
-
-    """API"""
-
-    def __get_weather_api_url(self) -> str:
-        api_url = "https://api.open-meteo.com/v1/forecast"
-
-        parameters = {
-            "latitude": LATITUDE,
-            "longitude": LONGITUDE,
-            "current": "temperature_2m,precipitation_probability,weather_code,is_day",
-            "timezone": TIMEZONE,
-            "forecast_days": 1,
-        }
-
-        request_url = api_url + "?"
-        for k, v in parameters.items():
-            request_url += f"{str(k)}={str(v)}&"
-
-        return request_url[:-1]
-
-    def get_weather(self) -> (float, int, int, bool):
-        return self.__temperature, self.__precipitation, self.__weather_code, self.__is_day
-
-    def set_weather(self): # TODO call set_weather every 30 min
-        response = urequests.get(self.__weather_api_url)
-
-        data = response.json()
-
-        response.close()
-
-        self.__temperature = data['current']['temperature_2m']
-        self.__precipitation = data['current']['precipitation_probability']
-        self.__weather_code = data['current']['weather_code']
-        self.__is_day = data['current']['is_day']
-
-    """DATE TIME"""
-
-    def get_current_month(self) -> str:
-        return MONTHS[int(self.__today.month)]
-
-    def set_today(self) -> None:
-        date_time = utime.localtime()
-
-        self.__today = Date(date_time[2], date_time[1], date_time[0])
-
-    def get_today(self) -> Date:
-        return self.__today
-
-    def get_total_number_days_in_current_month(self) -> int:
-        max_days = 31
-
-        date_time = utime.mktime((self.__today.year, self.__today.month, max_days, 0, 0, 0, 0, 0))
-        new_date_time = utime.localtime(date_time)
-
-        if new_date_time[1] != self.__today.month:
-            max_days -= new_date_time[2]
-
-        return max_days
-
-    def get_week_day_of_current_month(self, day: int) -> int:
-        week_day_date_time = utime.mktime((self.__today.year, self.__today.month, day, 0, 0, 0, 0, 0))
-
-        return utime.localtime(week_day_date_time)[6]
