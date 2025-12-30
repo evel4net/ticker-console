@@ -66,11 +66,15 @@ class LCD_Display(object):
 
     def draw_weather(self) -> None:
         pos_x = 188 + PADDING
+        pos_y = PADDING + Font.DEJAVU.height + LINE_SPACING + int((Font.UNISPACE.height - 16) / 2)
 
+        # clean weather part
+        self.__display.fill_hrect(pos_x, 0, self.__display.width - pos_x, pos_y + Font.UNISPACE.height, Color.BLACK)
+
+        # display current weather
         temperature, precipitation, weather_code, is_day = self.__weather_manager.get_weather()
 
         # images
-        pos_y = PADDING + Font.DEJAVU.height + LINE_SPACING + int((Font.UNISPACE.height - 16) / 2)
         self.__display.draw_image("icons/raindrop.raw", pos_x, pos_y, 12, 16)
 
         pos_x = self.__display.width - 64
@@ -89,9 +93,6 @@ class LCD_Display(object):
 
         pos_y = PADDING + Font.DEJAVU.height + LINE_SPACING + int((Font.UNISPACE.height - Font.ARCADEPIX.height) / 2)
         self.__display.draw_text(pos_x + 12 + PADDING - 1, pos_y, f"{precipitation}%", Font.ARCADEPIX, Color.WHITE)
-
-
-
 
     def draw_tasks(self, pos_x, pos_y, tasks: list[tuple[Task, bool]]) -> (int, int):
         for task, is_finished in tasks:

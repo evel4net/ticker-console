@@ -14,6 +14,11 @@ DC = 13 # data/command
 RESET = 15
 CS_DUMMY = 0 # chip select (used display doesn't have CS)
 
+# FILE SYSTEM
+LOG_DAY_PATH = "./logs/days"
+LOG_TASK_PATH = "./logs/tasks"
+LOG_ERROR_PATH = "./logs/errors.txt"
+
 # FONTS
 class Font:
     ARCADEPIX = XglcdFont('./fonts/ArcadePix9x11.c', 9, 11)

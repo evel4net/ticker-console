@@ -5,45 +5,38 @@ from src.task import Task
 from src.day import Day
 import src.utilities as utilities
 from src.utilities import Date
+from src.constants import LOG_DAY_PATH, LOG_TASK_PATH, LOG_ERROR_PATH
 
 class Repository(object):
     def __init__(self) -> None:
-        self.__days_path = "./logs/days"
-        self.__tasks_path = "./logs/tasks"
-        self.__errors_file_path = './logs/errors.txt'
-
         self.__days = {} # Date(day, month, year): Day
         self.__tasks = {} # task_id: Task
 
         self.load_data()
         # self.dummy_data()
-        # print(self.__tasks)
-        # print(self.__days)
-        # print("\n")
-
-        # print(self.get_today())
-        # print(self.get_weekday())
-        # print(self.get_current_month())
-        # print(self.get_current_month_first_weekday())
 
     def dummy_data(self) -> None:
-        self.add_task(Task("citit", Date(20, 12, 2025), Date(20, 12, 2025)))
-        self.add_task(Task("cumparaturi Craciun", Date(21, 12, 2025), Date(21, 12, 2025)))
-        self.add_task(Task("invatat examen practic", Date(20, 12, 2025), Date(20, 12, 2025)))
-        self.add_task(Task("scris proiect facultate", Date(20, 12, 2025), Date(22, 12, 2025)))
-        self.add_task(Task("curatenie apartament", Date(21, 12, 2025), Date(21, 12, 2025)))
-        self.add_task(Task("vizita la bunici", Date(22, 12, 2025), Date(22, 12, 2025)))
-        self.add_task(Task("programare sala sport", Date(22, 12, 2025), Date(23, 12, 2025)))
-        self.add_task(Task("gatit cina speciala", Date(23, 12, 2025), Date(23, 12, 2025)))
-        self.add_task(Task("pregatire prezentare", Date(23, 12, 2025), Date(24, 12, 2025)))
-        self.add_task(Task("plimbare in parc", Date(24, 12, 2025), Date(24, 12, 2025)))
-        self.add_task(Task("pregatire proiect mare", Date(20, 12, 2025), Date(24, 12, 2025)))
-        self.add_task(Task("organizare eveniment facultate", Date(20, 12, 2025), Date(24, 12, 2025)))
-        self.add_task(Task("studii pentru examen final", Date(20, 12, 2025), Date(24, 12, 2025)))
+        day = 1
+        month = 1
+        year = 2026
+
+        self.add_task(Task("citit", Date(day, month, year), Date(day, month, year)))
+        self.add_task(Task("cumparaturi Craciun", Date(day + 1, month, year), Date(day + 1, month, year)))
+        self.add_task(Task("invatat examen practic", Date(day, month, year), Date(day, month, year)))
+        self.add_task(Task("scris proiect facultate", Date(day, month, year), Date(day + 2, month, year)))
+        self.add_task(Task("curatenie apartament", Date(day + 1, month, year), Date(day + 1, month, year)))
+        self.add_task(Task("vizita la bunici", Date(day + 2, month, year), Date(day + 2, month, year)))
+        self.add_task(Task("programare sala sport", Date(day + 2, month, year), Date(day + 3, month, year)))
+        self.add_task(Task("gatit cina speciala", Date(day + 3, month, year), Date(day + 3, month, year)))
+        self.add_task(Task("pregatire prezentare", Date(day + 3, month, year), Date(day + 4, month, year)))
+        self.add_task(Task("plimbare in parc", Date(day + 4, month, year), Date(day + 4, month, year)))
+        self.add_task(Task("pregatire proiect mare", Date(day, month, year), Date(day + 4, month, year)))
+        self.add_task(Task("organizare eveniment facultate", Date(day, month, year), Date(day + 4, month, year)))
+        self.add_task(Task("studii pentru examen final", Date(day, month, year), Date(day + 4, month, year)))
 
     def load_data(self) -> None:
-        for filename in os.listdir(self.__days_path):
-            filepath = self.__days_path + "/" + filename
+        for filename in os.listdir(LOG_DAY_PATH):
+            filepath = LOG_DAY_PATH + "/" + filename
 
             with open(filepath, 'r') as f:
                 day = json.load(f)
@@ -54,8 +47,8 @@ class Repository(object):
 
                 self.__days[utilities.date_str_to_tuple(date)] = Day(utilities.date_str_to_tuple(date), tasks, status)
 
-        for filename in os.listdir(self.__tasks_path):
-            filepath = self.__tasks_path + "/" + filename
+        for filename in os.listdir(LOG_TASK_PATH):
+            filepath = LOG_TASK_PATH + "/" + filename
 
             with open(filepath, 'r') as f:
                 task = json.load(f)
@@ -68,19 +61,19 @@ class Repository(object):
                 self.__tasks[id] = Task(description, utilities.date_str_to_tuple(start_date), utilities.date_str_to_tuple(end_date), id)
 
     def save_day(self, day: Day) -> None:
-        filepath = self.__days_path + "/" + utilities.date_tuple_to_str(day.date) + ".json"
+        filepath = LOG_DAY_PATH + "/" + utilities.date_tuple_to_str(day.date) + ".json"
 
         with open(filepath, 'w') as f:
             json.dump(day.to_json(), f, separators=(',', ':'))
 
     def save_task(self, task: Task) -> None:
-        filepath = self.__tasks_path + "/" + task.id + ".json"
+        filepath = LOG_TASK_PATH + "/" + task.id + ".json"
 
         with open(filepath, 'w') as f:
             json.dump(task.to_json(), f, separators=(',', ':'))
 
     def save_error(self, error: str) -> None:
-        with open(self.__errors_file_path, 'a') as f:
+        with open(LOG_ERROR_PATH, 'a') as f:
             f.write('\n' + error)
 
     def get_all_days(self) -> dict[str, Day]:
@@ -147,5 +140,3 @@ class Repository(object):
         day.set_task_finished(index)
 
         self.save_day(day)
-
-        # print(self.__days)
