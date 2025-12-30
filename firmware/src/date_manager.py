@@ -38,16 +38,8 @@ class DateManager(object):
     def get_current_month(self) -> str:
         return MONTHS[int(self.__today.month)]
 
-    def get_total_number_days_in_current_month(self) -> int:
-        max_days = 31
-
-        date_time = utime.mktime((self.__today.year, self.__today.month, max_days, 0, 0, 0, 0, 0))
-        new_date_time = utime.localtime(date_time)
-
-        if new_date_time[1] != self.__today.month:
-            max_days -= new_date_time[2]
-
-        return max_days
+    def get_number_days_in_current_month(self) -> int:
+        return utilities.get_number_days_in_month(self.__today.month, self.__today.year)
 
     def get_week_day_of_current_month(self, day: int) -> int:
         week_day_date_time = utime.mktime((self.__today.year, self.__today.month, day, 0, 0, 0, 0, 0))

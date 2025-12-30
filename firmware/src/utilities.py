@@ -1,6 +1,7 @@
 import collections
+import utime
 
-from src.constants import DATE_DELIMITER
+from src.constants import DATE_DELIMITER, MONTH_DAYS
 
 Date = collections.namedtuple('Date', ('day', 'month', 'year'))
 
@@ -25,7 +26,7 @@ def get_dates_between_months(first_day: int, first_month: int, last_day: int, la
 
     month = first_month
     day1 = first_day
-    day2 = 30  # TODO
+    day2 = get_number_days_in_month(month, year)
 
     while month <= last_month:
         if month == last_month:
@@ -36,7 +37,7 @@ def get_dates_between_months(first_day: int, first_month: int, last_day: int, la
         month += 1
 
         day1 = 1
-        day2 = 30
+        day2 = get_number_days_in_month(month, year)
 
     return dates
 
@@ -47,7 +48,7 @@ def get_dates_between_years(first_day: int, first_month: int, first_year: int, l
     month1 = first_month
     month2 = 12
     day1 = first_day
-    day2 = 30  # TODO
+    day2 = get_number_days_in_month(month2, year)
 
     while year <= last_year:
         if year == last_year:
@@ -61,16 +62,28 @@ def get_dates_between_years(first_day: int, first_month: int, first_year: int, l
         month1 = 1
         month2 = 12
         day1 = 1
-        day2 = 30
+        day2 = get_number_days_in_month(month2, year)
 
     return dates
+
+def get_number_days_in_month(month: int, year: int):
+    number_days = MONTH_DAYS[month]
+
+    if month == 2: # february
+        date_time = utime.mktime((year, month, 29, 0, 0, 0, 0, 0))
+        new_date_time = utime.localtime(date_time)
+
+        if new_date_time[1] == month:
+            number_days = 29  # 29 days every 4 years
+
+    return number_days
 
 def get_next_day(date: Date) -> Date:
     day = date.day + 1
     month = date.month
     year = date.year
 
-    if day > 30: #TODO
+    if day > get_number_days_in_month(month, year):
         day = 1
         month += 1
 
@@ -86,12 +99,13 @@ def get_previous_day(date: Date) -> Date:
     year = date.year
 
     if day < 1:
-        day = 30 # TODO
         month -= 1
 
         if month < 1:
             month = 12
             year -= 1
+
+        day = get_number_days_in_month(month, year)
 
     return Date(day, month, year)
 

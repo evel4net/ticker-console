@@ -159,7 +159,7 @@ class LCD_Display(object):
         pos_y += cell_height + 1
 
         current_day = self.__date_manager.get_today().day
-        max_days = self.__date_manager.get_total_number_days_in_current_month()
+        max_days = self.__date_manager.get_number_days_in_current_month()
 
         for i in range(max_days):
             self.__display.draw_text(pos_x, pos_y, str(i + 1), Font.UNISPACE, Color.WHITE)

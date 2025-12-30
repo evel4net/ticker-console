@@ -103,12 +103,8 @@ class Controller(object):
 
                 sleep(0.1)
 
-                # if self.__current_day != self.__date_manager.get_today(): # refresh with new date
-                #     print("redraw main screen with new date")
-                #     self.__current_day = self.__date_manager.get_today()
-                #     self.__change_screen = True
-
                 if self.__date_manager.refresh_today(): # refresh main screen with new date
+                    print("redraw main screen, next day")
                     self.__current_day = self.__date_manager.get_today()
                     self.__change_screen = True
 
