@@ -1,8 +1,14 @@
 import src.utilities as utilities
 from src.utilities import Date
+from src.validator import Validator
+
 
 class Day(object):
-    def __init__(self, date: Date, task_ids: list[str] = None, status: list[bool] = None) -> None:  # TODO validate date here or outside?
+    _validator = Validator()
+
+    def __init__(self, date: Date, task_ids: list[str] = None, status: list[bool] = None) -> None:
+        Day._validator.validate_date(date)
+
         self.__date = date
 
         if task_ids is None:
@@ -34,12 +40,10 @@ class Day(object):
         return len(self.__task_ids)
 
     def add_task(self, task_id: str) -> None:
-        # self.__tasks[task_id] = False
         self.__task_ids.append(task_id)
         self.__is_finished_status.append(False)
 
     def remove_task(self, index: int) -> None:
-        # self.__tasks.pop(task_id)
         self.__task_ids.pop(index)
         self.__is_finished_status.pop(index)
 

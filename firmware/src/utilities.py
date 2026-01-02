@@ -11,7 +11,7 @@ def date_tuple_to_str(date: Date, delimiter: str = DATE_DELIMITER) -> str:
 def date_str_to_tuple(date: str) -> Date:
     day, month, year = map(int, date.split(DATE_DELIMITER))
 
-    return day, month, year
+    return Date(day, month, year)
 
 def get_dates_between_days(first_day: int, last_day: int, month: int, year: int) -> list[Date]:
     dates = []

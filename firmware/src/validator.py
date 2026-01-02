@@ -18,7 +18,7 @@ class Validator(object):
 
     def validate_date(self, date: Date) -> None:
         if not self.check_date_type(date):
-            raise TypeError(f"{date} is not string.")
+            raise TypeError(f"{date} is not date.")
 
     # ---
 

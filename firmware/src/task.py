@@ -2,9 +2,15 @@ import utime
 
 import src.utilities as utilities
 from src.utilities import Date
+from src.validator import Validator
+
 
 class Task(object):
-    def __init__(self, description: str, start_date: Date, end_date: Date, id: str = None) -> None: # TODO validate params here or outside?
+    _validator = Validator()
+
+    def __init__(self, description: str, start_date: Date, end_date: Date, id: str = None) -> None:
+        Task._validator.validate_task(description, start_date, end_date)
+
         if id is None:
             id = self.__generate_id()
 
@@ -27,6 +33,8 @@ class Task(object):
 
     @description.setter
     def description(self, new_description: str) -> None:
+        Task._validator.validate_description(new_description)
+
         self.__description = new_description
 
     @property
@@ -35,7 +43,12 @@ class Task(object):
 
     @start_date.setter
     def start_date(self, new_start_date: Date) -> None:
+        Task._validator.validate_dates(new_start_date, self.__end_date)
+
+        # old_start_date = self.__start_date
         self.__start_date = new_start_date
+
+        # return old_start_date
 
     @property
     def end_date(self) -> Date:
@@ -43,6 +56,8 @@ class Task(object):
 
     @end_date.setter
     def end_date(self, new_end_date: Date) -> None:
+        Task._validator.validate_dates(self.__start_date, new_end_date)
+
         self.__end_date = new_end_date
 
     def get_dates(self) -> list[Date]:

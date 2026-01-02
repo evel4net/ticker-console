@@ -22,7 +22,7 @@ class DateManager(object):
 
         self.__today = Date(date_time[2], date_time[1], date_time[0])
 
-        self.__last_update_time = utime.time()
+        self.__last_update_time = utime.mktime(date_time)
         self.__delay_until_midnight = utilities.get_seconds_until_midnight(date_time[3] + UTC_OFFSET, date_time[4], date_time[5])
 
     def refresh_today(self) -> bool:
