@@ -43,9 +43,18 @@ class Day(object):
         self.__task_ids.append(task_id)
         self.__is_finished_status.append(False)
 
-    def remove_task(self, index: int) -> None:
-        self.__task_ids.pop(index)
-        self.__is_finished_status.pop(index)
+    def remove_task(self, id: str) -> str | None:
+        task_id = None
+
+        for i in range(len(self.__task_ids)):
+            task_id = self.__task_ids[i]
+
+            if task_id == id:
+                self.__task_ids.pop(i)
+                self.__is_finished_status.pop(i)
+                break
+
+        return task_id
 
     def is_task_finished(self, index: int) -> bool:
         return self.__is_finished_status[index]

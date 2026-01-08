@@ -12,6 +12,7 @@ from src.display import LCD_Display
 from src.constants import LED
 from src.config_private import SSID, PASSWORD
 from src.weather_manager import WeatherManager
+from src.web_server import WebServer
 
 LED_PIN = Pin(LED, Pin.OUT)
 LED_PIN.value(0)
@@ -39,13 +40,17 @@ def sync_time() -> None:
     print("Syncing time...")
     ntptime.settime()
 
-# connect_wifi()
-# sync_time()
+connect_wifi()
+sync_time()
 
 repository = Repository()
-weather_manager = WeatherManager()
-date_manager = DateManager()
-display = LCD_Display(weather_manager, date_manager)
-controller = Controller(repository, display, weather_manager, date_manager)
 
-controller.start_display()
+web_server = WebServer(repository)
+web_server.start_server()
+
+# weather_manager = WeatherManager()
+# date_manager = DateManager()
+# display = LCD_Display(weather_manager, date_manager)
+# controller = Controller(repository, display, weather_manager, date_manager)
+#
+# controller.start_display()

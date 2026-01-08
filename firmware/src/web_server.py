@@ -11,11 +11,12 @@ class WebServer(object):
         self.__repository = repository
         self.__clients = []
 
-        self.__handlers = {("POST", "/tasks/add"): self.handle_add_task, ("PATCH", "/tasks/update"): self.handle_update_task,
-                    ("DELETE", "/tasks/delete"): self.handle_delete_task, ("GET", "/tasks"): self.handle_get_tasks,
-                    ("GET", "/tasks/get"): self.handle_get_task}
+        self.__handlers = {("POST", "/task"): self.handle_add_task, ("PATCH", "/task"): self.handle_update_task,
+                    ("DELETE", "/task"): self.handle_delete_task, ("GET", "/task"): self.handle_get_task,
+                    ("GET", "/tasks"): self.handle_get_tasks, ("GET", "/tasks/day"): self.handle_get_tasks_by_day}
 
-    # SERVER - create socket, accept connection, receive request, get handler to execute from ROUTER, send response back to client
+    """ ---------- SERVER ---------- """
+    # - create socket, accept connection, receive request, get handler to execute from ROUTER, send response back to client
 
     def start_server(self) -> None:
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -97,6 +98,9 @@ class WebServer(object):
 
         body = body.decode()
 
+        if len(body) == 0:
+            body = "{}"
+
         return request_line, headers, body
 
     def send_response(self, client_socket: socket.socket, status, response) -> None:
@@ -113,7 +117,8 @@ class WebServer(object):
 
         print("Response sent")
 
-    # ROUTER - receive method and path, return corresponding handler to server
+    """ ---------- ROUTER ---------- """
+    # - receive method and path, return corresponding handler to server
 
     def route(self, method, path) -> str:
         if (method, path) in self.__handlers:
@@ -121,87 +126,99 @@ class WebServer(object):
 
         raise Exception("Request not found")
 
-    # HANDLERS - method for get, add, update, delete, validate input and return status and object
+    """ ---------- HANDLERS ---------- """
+    # - method for get, add, update, delete, validate input and return status and object
 
-    def handle_add_task(self, request_body: str):     # POST /tasks/add --> 201
+    """ POST /task """
+    def handle_add_task(self, request_body: str):
         # body: {"description": "description", "start_date": "dd_mm_yyyyy", "end_date": "dd_mm_yyyyy"}
 
         add_data = json.loads(request_body)
-
         print(f"Add task: {add_data}")
-        return 200, {"status": "received request"}
 
-        try:
-            new_task = Task(add_data["description"], add_data["start_date"], add_data["end_date"])
-            self.__repository.add_task(new_task)
-        except KeyError:
-            raise Exception("Invalid arguments")
+        new_task = Task(add_data["description"], utilities.date_str_to_tuple(add_data["start_date"]), utilities.date_str_to_tuple(add_data["end_date"]))
+        self.__repository.add_task(new_task)
 
         return 201, {"status": "task added"}
 
-    def handle_update_task(self, request_body):  # PATCH /tasks/update
+    """ PATCH /task """
+    def handle_update_task(self, request_body):
         # body: {"id": "id", "?description": "new description", "?start_date": "dd_mm_yyyyy", "?end_date": "dd_mm_yyyyy"}
 
         update_data = json.loads(request_body)
-
         print(f"Update task: {update_data}")
-        return 200, {"status": "received request"}
 
-        try:
-            id = update_data["id"]
-            task = self.__repository.get_task(id)
+        task_id = update_data["id"]
 
-            if "description" in update_data:
-                task.description = update_data["description"]
-            if "start_date" in update_data:
-                # TODO repo method for update
-                task.start_date = utilities.date_str_to_tuple(update_data["start_date"])
-            if "end_date" in update_data:
-                # TODO repo method for update
-                task.end_date = utilities.date_str_to_tuple(update_data["end_date"])
-        except KeyError:
-            raise Exception("Task not found")
+        new_description = update_data.get("description")
+
+        new_start_date = update_data.get("start_date")
+        if new_start_date is not None:
+            new_start_date = utilities.date_str_to_tuple(new_start_date)
+
+        new_end_date = update_data.get("end_date")
+        if new_end_date is not None:
+            new_end_date = utilities.date_str_to_tuple(new_end_date)
+
+        self.__repository.update_task(task_id, new_description, new_start_date, new_end_date)
 
         return 200, {"status": "task updated"}
 
-    def handle_delete_task(self, request_body):  # DELETE /tasks/delete
+    """ DELETE /task """
+    def handle_delete_task(self, request_body):
         # body: {"id": "id"}
-        # validate body, check object exists -> else exception
+
         delete_data = json.loads(request_body)
-
         print(f"Delete task: {delete_data}")
-        return 200, {"status": "received request"}
 
-        try:
-            id = delete_data["id"]
-            # TODO repo method for delete
-        except KeyError:
-            raise Exception("Task not found")
+        task_id = delete_data["id"]
+        self.__repository.remove_task(task_id)
 
         return 200, {"status": "task deleted"}
 
-    def handle_get_tasks(self, request_body):    # GET /tasks
-        task_data = json.loads(request_body)
-
-        print(f"Get tasks: {task_data}")
-        return 200, {"status": "received request"}
-
-        self.__repository.get_all_tasks() # TODO all tasks or all tasks by day
-
-        return 200, {}
-
-    def handle_get_task(self, request_body):     # GET /tasks/get
+    """ GET /task """
+    def handle_get_task(self, request_body):
         # body: {"id": "id"}
 
         get_data = json.loads(request_body)
-
         print(f"Get task: {get_data}")
-        return 200, {"status": "received request"}
 
-        try:
-            id = get_data["id"]
-            self.__repository.get_task(id)
-        except KeyError:
-            raise Exception("Task not found")
+        id = get_data["id"]
+        task = self.__repository.get_task(id)
 
-        return 200, {}
+        return 200, task.to_json()
+
+    """ GET /tasks """
+    def handle_get_tasks(self, request_body):
+        # body: {}
+        # response: {"task_id": {task_json}} -- return all tasks in memory, without the status
+
+        task_data = json.loads(request_body)
+        print(f"Get tasks: {task_data}")
+
+        tasks = self.__repository.get_all_tasks()
+        tasks_json = {}
+
+        for id, task in tasks.items():
+            tasks_json[id] = task.to_json()
+
+        return 200, tasks_json
+
+    """ GET /tasks/day """
+    def handle_get_tasks_by_day(self, request_body):
+        # body: {"day": "dd_mm_yyyy"}
+        # response: {"id": {task json, "is_finished": bool}} -- return all tasks by date, with the status
+
+        day_data = json.loads(request_body)
+        print(f"Get tasks by day: {day_data}")
+
+        tasks = self.__repository.get_all_tasks_by_day(utilities.date_str_to_tuple(day_data["day"]))
+        tasks_json = {}
+
+        for task, is_finished in tasks:
+            task_json = task.to_json()
+            task_json["is_finished"] = is_finished
+
+            tasks_json[task.id] = task_json
+
+        return 200, tasks_json
