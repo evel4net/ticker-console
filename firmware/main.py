@@ -1,3 +1,5 @@
+import asyncio
+
 from machine import Pin
 import network
 import rp2
@@ -44,13 +46,31 @@ connect_wifi()
 sync_time()
 
 repository = Repository()
-
 web_server = WebServer(repository)
-web_server.start_server()
 
-# weather_manager = WeatherManager()
-# date_manager = DateManager()
-# display = LCD_Display(weather_manager, date_manager)
-# controller = Controller(repository, display, weather_manager, date_manager)
-#
-# controller.start_display()
+weather_manager = WeatherManager()
+date_manager = DateManager()
+display = LCD_Display(weather_manager, date_manager)
+controller = Controller(repository, display, weather_manager, date_manager)
+
+async def main():
+    asyncio.create_task(web_server.start_server())
+    asyncio.create_task(controller.start_display())
+
+    while True:
+        await asyncio.sleep(1)
+
+loop = asyncio.get_event_loop()
+loop.create_task(main())
+
+print("Starting loop...")
+
+try:
+    loop.run_forever()
+except Exception as e:
+    print(f"Error: {e}")
+except KeyboardInterrupt:
+    print("Program interrupted from keyboard")
+finally:
+    web_server.stop_server()
+    loop.close()

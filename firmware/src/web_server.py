@@ -1,4 +1,4 @@
-import socket
+import asyncio
 import json
 
 from src.task import Task
@@ -9,6 +9,7 @@ import src.utilities as utilities
 class WebServer(object):
     def __init__(self, repository: Repository) -> None:
         self.__repository = repository
+        self.__server = None
         self.__clients = []
 
         self.__handlers = {("POST", "/task"): self.handle_add_task, ("PATCH", "/task"): self.handle_update_task,
@@ -18,30 +19,23 @@ class WebServer(object):
     """ ---------- SERVER ---------- """
     # - create socket, accept connection, receive request, get handler to execute from ROUTER, send response back to client
 
-    def start_server(self) -> None:
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind((IP, PORT))
-        server_socket.listen(1)
+    async def start_server(self) -> None:
+        print("Web server starting...")
+
+        self.__server = await asyncio.start_server(self.manage_client, IP, PORT)
 
         print("Waiting for clients...")
-        # while True:
-        client_socket, client_address = server_socket.accept()
-        print(f"New client from: {client_address}")
 
-        self.__clients.append(client_socket)
-
-        self.manage_client(client_socket)
-
-        self.stop_server(server_socket)
-
-
-    def stop_server(self, server_socket: socket.socket):
+    async def stop_server(self): # TODO shutdown server when pressing shutdown button (to add)
         print("Server stopping...")
-        server_socket.close()
 
-    def manage_client(self, client_socket: socket.socket) -> None:
-        request_line, headers, body = self.receive_request(client_socket)
+        self.__server.close()
+        await self.__server.wait_closed()
+
+    async def manage_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        print("New client")
+
+        request_line, headers, body = await self.receive_request(reader)
 
         request_args = request_line.split(" ")
         method = request_args[0]
@@ -56,16 +50,15 @@ class WebServer(object):
             status = 404
             response = {"error": str(e)}
 
-        self.send_response(client_socket, status, response)
+        await self.send_response(writer, status, response)
 
-        client_socket.close()
 
-    def receive_request(self, client_socket: socket.socket) -> tuple[str, str, str]:
+    async def receive_request(self, reader: asyncio.StreamReader) -> tuple[str, str, str]:
         data = b""
 
         # --- receive request line and headers until "\r\n\r\n" received
         while b"\r\n\r\n" not in data:
-            chunk = client_socket.recv(1024)
+            chunk = await reader.read(1024)
 
             if not chunk:
                 break
@@ -88,13 +81,8 @@ class WebServer(object):
                 break
 
         # --- receive the rest of the body
-        while len(body) < body_length:
-            chunk = client_socket.recv(1024)
-
-            if not chunk:
-                break
-
-            body += chunk
+        if len(body) < body_length:
+            body += await reader.readexactly(body_length - len(body))
 
         body = body.decode()
 
@@ -103,19 +91,23 @@ class WebServer(object):
 
         return request_line, headers, body
 
-    def send_response(self, client_socket: socket.socket, status, response) -> None:
+    async def send_response(self, writer: asyncio.StreamWriter, status, response) -> None:
         response_json = json.dumps(response)
 
-        client_socket.send(f"HTTP/1.1 {status} OK\r\n")
-        client_socket.send("Server: RaspberryPi Pico 2W\r\n")
-        client_socket.send(f"Content-Length: {len(response_json)}\r\n")
-        client_socket.send("Content-Type: application/json\r\n")
-        client_socket.send("Connection: close\r\n")
-        client_socket.send("\r\n")
+        response_msg = (f"HTTP/1.1 {status} OK\r\n"
+                "Server: RaspberryPi Pico 2W\r\n"
+                f"Content-Length: {len(response_json)}\r\n"
+                "Content-Type: application/json\r\n"
+                "Connection: close\r\n"
+                "\r\n")
 
-        client_socket.send(response_json)
+        writer.write(response_msg.encode())
+        writer.write(response_json.encode())
 
-        print("Response sent")
+        await writer.drain()
+        await writer.wait_closed()
+
+        print("Response sent. Connection closed.")
 
     """ ---------- ROUTER ---------- """
     # - receive method and path, return corresponding handler to server

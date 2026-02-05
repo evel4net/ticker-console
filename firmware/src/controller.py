@@ -1,6 +1,6 @@
-import utime
+import asyncio
+
 from machine import Pin
-from utime import sleep
 
 from src.date_manager import DateManager
 from src.repository import Repository
@@ -34,7 +34,7 @@ class Controller(object):
 
         self.setup()
 
-    """BUTTONS + HANDLERS"""
+    """ BUTTONS + HANDLERS """
 
     def setup(self) -> None:
         BUTTON_DOWN_PIN.irq(trigger=Pin.IRQ_RISING, handler=self.__button_down_handler)
@@ -70,21 +70,21 @@ class Controller(object):
         if self.__screen_index > 0 and not self.__mark_task and pin == BUTTON_MARK_PIN:
             self.__mark_task = True
 
-    """MANAGE DISPLAY"""
+    """ MANAGE DISPLAY """
 
-    def start_display(self) -> None:
-        self.__draw()
+    async def start_display(self) -> None:
+        await self.__draw()
 
         while True:
             try:
                 if self.__change_screen:
-                    self.__draw()
+                    await self.__draw()
             except Exception as e:
                 self.__repository.save_error(repr(e))
 
-            sleep(0.05)
+            await asyncio.sleep(0.05)
 
-    def __draw(self) -> None:
+    async def __draw(self) -> None:
         self.__change_screen = False
 
         start_pos_x, start_pos_y = -1, -1
@@ -101,9 +101,9 @@ class Controller(object):
             while not self.__change_screen:
                 self.__display.draw_clock()
 
-                sleep(0.1)
+                await asyncio.sleep(0.1)
 
-                if self.__date_manager.refresh_today(): # refresh main screen with new date
+                if self.__date_manager.refresh_today(): # refresh main screen with new date TODO not working properly
                     print("redraw main screen, next day")
                     self.__current_day = self.__date_manager.get_today()
                     self.__change_screen = True
@@ -123,7 +123,7 @@ class Controller(object):
                     self.__mark_task = False
                     self.__go_next_row = True
 
-                sleep(0.05)
+                await asyncio.sleep(0.1)
 
     def __set_cursor(self, start_pos_x: int, start_pos_y: int) -> None:
         self.__row_index += 1
@@ -136,16 +136,12 @@ class Controller(object):
 
         self.__display.draw_text_cursor(start_pos_x, start_pos_y, self.__row_index, Color.WHITE)
 
-        sleep(0.1)
-
     def __mark_task_finished(self, start_pos_x: int, start_pos_y: int) -> None:
         if not self.__repository.is_task_finished(self.__current_day, self.__row_index):
             self.__display.draw_task_line(start_pos_x, start_pos_y, self.__row_index, len(self.__repository.get_task_by_index(self.__current_day, self.__row_index).description))
             self.__repository.set_task_finished(self.__current_day, self.__row_index)
 
-        sleep(0.1)
-
-    """LED STATES"""
+    """ LED STATES """
 
     def __turn_on_led(self) -> None:
         LED_PIN.value(1)
