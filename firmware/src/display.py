@@ -5,7 +5,6 @@ import utime
 from src.date_manager import DateManager
 from src.constants import SCK, MOSI, DC, RESET, CS_DUMMY, WEEKDAYS, PADDING, LINE_SPACING, Font, Color, \
     CURSOR, WEATHERS
-from src.config_private import UTC_OFFSET
 from src.task import Task
 import src.utilities as utilities
 from src.utilities import Date
@@ -31,17 +30,17 @@ class LCD_Display(object):
 
     """UTILS"""
 
-    def __local_to_string(self, local) -> str:
-        return f"{WEEKDAYS[local[6]]} {utilities.date_tuple_to_str(Date(local[2], local[1], local[0]), "/")}"
+    def __today_to_main_string(self) -> str:
+        current_date = self.__date_manager.get_today()
 
-    def __time_to_string(self, local) -> str:
-        hours = local[3] + UTC_OFFSET
-        minutes = local[4]
+        weekday = self.__date_manager.get_week_day_of_current_month(current_date.day)
+
+        return f"{WEEKDAYS[weekday]} {utilities.date_tuple_to_str(current_date, "/")}"
+
+    def __local_to_time_string(self, local) -> str:
+        hours, minutes, _ = utilities.local_to_actual_time(local)
 
         return f"{"0" + str(hours) if hours < 10 else str(hours)}:{"0" + str(minutes) if minutes < 10 else str(minutes)}"
-
-    def __local_to_date(self, local) -> Date:
-        return Date(local[2], local[1], local[0])
 
     """DRAW COMPONENTS"""
 
@@ -55,7 +54,7 @@ class LCD_Display(object):
         self.__display.draw_line(pos_x, 0, pos_x, pos_y, Color.WHITE)
 
     def draw_clock(self) -> (int, int):
-        self.__display.draw_text(PADDING, PADDING, self.__time_to_string(utime.localtime()), Font.DEJAVU, Color.WHITE)
+        self.__display.draw_text(PADDING, PADDING, self.__local_to_time_string(utime.localtime()), Font.DEJAVU, Color.WHITE)
 
         return PADDING, PADDING + Font.DEJAVU.height + LINE_SPACING
 
@@ -182,7 +181,7 @@ class LCD_Display(object):
 
         self.draw_main_frame()
         current_pos_x, current_pos_y = self.draw_clock()
-        current_pos_x, current_pos_y = self.draw_date(current_pos_x, current_pos_y, self.__local_to_string(utime.localtime()))
+        current_pos_x, current_pos_y = self.draw_date(current_pos_x, current_pos_y, self.__today_to_main_string())
         self.draw_tasks(current_pos_x, current_pos_y + LINE_SPACING, tasks)
         self.draw_weather()
 

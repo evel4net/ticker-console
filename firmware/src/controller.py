@@ -103,7 +103,7 @@ class Controller(object):
 
                 await asyncio.sleep(0.1)
 
-                if self.__date_manager.refresh_today(): # refresh main screen with new date TODO not working properly
+                if self.__date_manager.refresh_today(): # refresh main screen with new date
                     print("redraw main screen, next day")
                     self.__current_day = self.__date_manager.get_today()
                     self.__change_screen = True

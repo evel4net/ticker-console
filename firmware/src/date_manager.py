@@ -1,6 +1,5 @@
 import utime
 
-from src.config_private import UTC_OFFSET
 from src.constants import MONTHS
 import src.utilities as utilities
 from src.utilities import Date
@@ -8,9 +7,6 @@ from src.utilities import Date
 class DateManager(object):
     def __init__(self):
         self.__today = None
-
-        self.__last_update_time = None
-        self.__delay_until_midnight = None
 
         self.set_today()
 
@@ -20,15 +16,12 @@ class DateManager(object):
     def set_today(self) -> None:
         date_time = utime.localtime()
 
-        self.__today = Date(date_time[2], date_time[1], date_time[0])
-
-        self.__last_update_time = utime.mktime(date_time)
-        self.__delay_until_midnight = utilities.get_seconds_until_midnight(date_time[3] + UTC_OFFSET, date_time[4], date_time[5])
+        self.__today = utilities.local_to_actual_date(date_time)
 
     def refresh_today(self) -> bool:
-        current_time = utime.time()
+        current_date = utilities.local_to_actual_date(utime.localtime())
 
-        if current_time - self.__last_update_time >= self.__delay_until_midnight:
+        if current_date != self.__today:
             self.set_today()
 
             return True

@@ -1,6 +1,7 @@
 import collections
 import utime
 
+from src.config_private import UTC_OFFSET
 from src.constants import DATE_DELIMITER, MONTH_DAYS
 
 Date = collections.namedtuple('Date', ('day', 'month', 'year'))
@@ -12,6 +13,18 @@ def date_str_to_tuple(date: str) -> Date:
     day, month, year = map(int, date.split(DATE_DELIMITER))
 
     return Date(day, month, year)
+
+def local_to_actual_date(local) -> Date:
+    hour = local[3] + UTC_OFFSET
+    current_date = Date(local[2], local[1], local[0])
+
+    if hour >= 24:
+        return get_next_day(current_date)
+
+    return current_date
+
+def local_to_actual_time(local) -> (int, int, int):
+    return (local[3] + UTC_OFFSET) % 24, local[4], local[5]
 
 def get_dates_between_days(first_day: int, last_day: int, month: int, year: int) -> list[Date]:
     dates = []
@@ -108,8 +121,3 @@ def get_previous_day(date: Date) -> Date:
         day = get_number_days_in_month(month, year)
 
     return Date(day, month, year)
-
-def get_seconds_until_midnight(hour: int, minute: int, second: int) -> int:
-    seconds_passed = hour * 3600 + minute * 60 + second
-
-    return 86400 - seconds_passed
