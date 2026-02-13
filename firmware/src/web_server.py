@@ -4,14 +4,16 @@ import json
 from src.session_manager import SessionManager, UnauthorizedAccessException
 from src.task import Task
 from src.repository import Repository
-from src.config_private import IP, PORT
+from src.config_private import IP, PORT, SERVER_PRIV_PATH, SERVER_PUB_PATH
 import src.utilities as utilities
+import src.cipher as cipher
 
 class WebServer(object):
     def __init__(self, repository: Repository) -> None:
         self.__repository = repository
         self.__server = None
         self.__session_manager = SessionManager()
+        self.__cipher = cipher.Cipher(SERVER_PRIV_PATH, SERVER_PUB_PATH)
 
         self.__handlers = {("POST", "/task"): self.handle_add_task, ("PATCH", "/task"): self.handle_update_task,
                     ("DELETE", "/task"): self.handle_delete_task, ("GET", "/task"): self.handle_get_task,
@@ -37,11 +39,12 @@ class WebServer(object):
     async def manage_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         print("New client")
 
-        request_line, headers, body = await self.receive_request(reader)
+        request_line, headers, request_body = await self.receive_request(reader)
+        body = self.__cipher.decrypt_request(request_body)
 
         request_args = request_line.split(" ")
         method = request_args[0]
-        path = request_args[1]
+        path = request_args[1].split(IP)[1].strip()
 
         print(method, path, body)
         try:
@@ -69,9 +72,9 @@ class WebServer(object):
             response = {"error": str(e)}
             custom_headers = None
 
-        await self.send_response(writer, status, response, custom_headers)
+        await self.send_response(writer, status, self.__cipher.encrypt_response(response), custom_headers)
 
-    async def receive_request(self, reader: asyncio.StreamReader) -> tuple[str, list[str], str]:
+    async def receive_request(self, reader: asyncio.StreamReader) -> tuple[str, list[str], dict]:
         data = b""
 
         # --- receive request line and headers until "\r\n\r\n" received
@@ -98,18 +101,18 @@ class WebServer(object):
                 break
 
         # --- receive the rest of the body
-        if len(body) < body_length:
+        while len(body) < body_length:
             body += await reader.readexactly(body_length - len(body))
-
-        body = body.decode()
 
         if len(body) == 0:
             body = "{}"
+        else:
+            body = body.decode()
 
-        return request_line, headers, body
+        return request_line, headers, json.loads(body)
 
-    async def send_response(self, writer: asyncio.StreamWriter, status, response, custom_headers: dict = None) -> None:
-        response_json = json.dumps(response)
+    async def send_response(self, writer: asyncio.StreamWriter, status: int, response: dict, custom_headers: dict = None) -> None:
+        response_str = json.dumps(response)
 
         response_msg = (f"HTTP/1.1 {status} OK\r\n"
                 "Server: RaspberryPi Pico 2W\r\n")
@@ -118,13 +121,13 @@ class WebServer(object):
             for header, value in custom_headers.items():
                 response_msg += f"{header}: {value}\r\n"
 
-        response_msg += (f"Content-Length: {len(response_json)}\r\n"
+        response_msg += (f"Content-Length: {len(response_str)}\r\n"
                 "Content-Type: application/json\r\n"
                 "Connection: close\r\n"
                 "\r\n")
 
         writer.write(response_msg.encode())
-        writer.write(response_json.encode())
+        writer.write(response_str.encode())
 
         await writer.drain()
         await writer.wait_closed()
@@ -145,47 +148,40 @@ class WebServer(object):
 
     """ POST /login """
 
-    def handle_login(self, request_body: str):
+    def handle_login(self, request_body: dict):
         # body: {"username": "encrypted username", "password": "encrypted password"}
 
-        user = json.loads(request_body)
-        token = self.__session_manager.create_session(user["username"], user["password"])
+        token = self.__session_manager.create_session(request_body["username"], request_body["password"])
 
         return 200, {"token":  token}, False
 
     """ DELETE /signout """
 
-    def handle_signout(self, request_body: str):
+    def handle_signout(self, request_body: dict):
         return 200, {"status": "Sign out successful."}, False
 
     """ POST /task """
     def handle_add_task(self, request_body: str):
         # body: {"description": "description", "start_date": "dd_mm_yyyyy", "end_date": "dd_mm_yyyyy"}
 
-        add_data = json.loads(request_body)
-        print(f"Add task: {add_data}")
-
-        new_task = Task(add_data["description"], utilities.date_str_to_tuple(add_data["start_date"]), utilities.date_str_to_tuple(add_data["end_date"]))
+        new_task = Task(request_body["description"], utilities.date_str_to_tuple(request_body["start_date"]), utilities.date_str_to_tuple(request_body["end_date"]))
         self.__repository.add_task(new_task)
 
         return 201, {"status": "Task added."}, True
 
     """ PATCH /task """
-    def handle_update_task(self, request_body):
+    def handle_update_task(self, request_body: dict):
         # body: {"id": "id", "?description": "new description", "?start_date": "dd_mm_yyyyy", "?end_date": "dd_mm_yyyyy"}
 
-        update_data = json.loads(request_body)
-        print(f"Update task: {update_data}")
+        task_id = request_body["id"]
 
-        task_id = update_data["id"]
+        new_description = request_body.get("description")
 
-        new_description = update_data.get("description")
-
-        new_start_date = update_data.get("start_date")
+        new_start_date = request_body.get("start_date")
         if new_start_date is not None:
             new_start_date = utilities.date_str_to_tuple(new_start_date)
 
-        new_end_date = update_data.get("end_date")
+        new_end_date = request_body.get("end_date")
         if new_end_date is not None:
             new_end_date = utilities.date_str_to_tuple(new_end_date)
 
@@ -194,36 +190,27 @@ class WebServer(object):
         return 200, {"status": "Task updated."}, True
 
     """ DELETE /task """
-    def handle_delete_task(self, request_body):
+    def handle_delete_task(self, request_body: dict):
         # body: {"id": "id"}
 
-        delete_data = json.loads(request_body)
-        print(f"Delete task: {delete_data}")
-
-        task_id = delete_data["id"]
+        task_id = request_body["id"]
         self.__repository.remove_task(task_id)
 
         return 200, {"status": "Task deleted."}, True
 
     """ GET /task """
-    def handle_get_task(self, request_body):
+    def handle_get_task(self, request_body: dict):
         # body: {"id": "id"}
 
-        get_data = json.loads(request_body)
-        print(f"Get task: {get_data}")
-
-        id = get_data["id"]
+        id = request_body["id"]
         task = self.__repository.get_task(id)
 
         return 200, task.to_json(), True
 
     """ GET /tasks """
-    def handle_get_tasks(self, request_body):
+    def handle_get_tasks(self, request_body: dict):
         # body: {}
         # response: {"task_id": {task_json}} -- return all tasks in memory, without the status
-
-        task_data = json.loads(request_body)
-        print(f"Get tasks: {task_data}")
 
         tasks = self.__repository.get_all_tasks()
         tasks_json = {}
@@ -234,14 +221,11 @@ class WebServer(object):
         return 200, tasks_json, True
 
     """ GET /tasks/day """
-    def handle_get_tasks_by_day(self, request_body):
+    def handle_get_tasks_by_day(self, request_body: dict):
         # body: {"day": "dd_mm_yyyy"}
         # response: {"id": {task json, "is_finished": bool}} -- return all tasks by date, with the status
 
-        day_data = json.loads(request_body)
-        print(f"Get tasks by day: {day_data}")
-
-        tasks = self.__repository.get_all_tasks_by_day(utilities.date_str_to_tuple(day_data["day"]))
+        tasks = self.__repository.get_all_tasks_by_day(utilities.date_str_to_tuple(request_body["day"]))
         tasks_json = {}
 
         for task, is_finished in tasks:
