@@ -88,19 +88,18 @@ class Cipher(object):
         response_str = json.dumps(response)
         aes_iv, cipher_text, hmac_tag = self.encrypt_text(response_str.encode())
 
-        self.__aes_key = None
-
         response_json = {"cipher_text": cipher_text.hex(), "iv": aes_iv.hex(), "tag": hmac_tag.hex()}
 
         return response_json
 
-    def decrypt_request(self, request_body: dict) -> dict:
-        client_public_key = request_body["client_pub"]
+    def decrypt_request(self, request_body: dict, is_login_request: bool = False) -> dict:
+        if is_login_request:
+            client_public_key = request_body["client_pub"]
+            self.__aes_key = self.get_aes_key(client_public_key)
+
         cipher_text = bytes.fromhex(request_body["cipher_text"])
         aes_iv = bytes.fromhex(request_body["iv"])
         hmac_tag = bytes.fromhex(request_body["tag"])
-
-        self.__aes_key = self.get_aes_key(client_public_key)
 
         plain_text = self.decrypt_text(aes_iv, cipher_text, hmac_tag)
 

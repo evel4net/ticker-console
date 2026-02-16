@@ -35,9 +35,6 @@ def connect_wifi() -> None:
         LED_PIN.value(0)
         utime.sleep(0.5)
 
-
-    print(wlan.ifconfig())
-
 def sync_time() -> None:
     print("Syncing time...")
     ntptime.settime()

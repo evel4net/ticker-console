@@ -6,14 +6,14 @@ from src.task import Task
 from src.repository import Repository
 from src.config_private import IP, PORT, SERVER_PRIV_PATH, SERVER_PUB_PATH
 import src.utilities as utilities
-import src.cipher as cipher
+from src.cipher import Cipher
 
 class WebServer(object):
     def __init__(self, repository: Repository) -> None:
         self.__repository = repository
         self.__server = None
         self.__session_manager = SessionManager()
-        self.__cipher = cipher.Cipher(SERVER_PRIV_PATH, SERVER_PUB_PATH)
+        self.__cipher = Cipher(SERVER_PRIV_PATH, SERVER_PUB_PATH)
 
         self.__handlers = {("POST", "/task"): self.handle_add_task, ("PATCH", "/task"): self.handle_update_task,
                     ("DELETE", "/task"): self.handle_delete_task, ("GET", "/task"): self.handle_get_task,
@@ -21,7 +21,7 @@ class WebServer(object):
                     ("POST", "/login"): self.handle_login, ("DELETE", "/signout"): self.handle_signout}
 
     """ ---------- SERVER ---------- """
-    # - create socket, accept connection, receive request, get handler to execute from ROUTER, send response back to client
+    # - create socket, accept connection, receive request, decrypt body, get handler to execute from ROUTER, send response encrypted back to client
 
     async def start_server(self) -> None:
         print("Web server starting...")
@@ -40,23 +40,28 @@ class WebServer(object):
         print("New client")
 
         request_line, headers, request_body = await self.receive_request(reader)
-        body = self.__cipher.decrypt_request(request_body)
 
         request_args = request_line.split(" ")
         method = request_args[0]
         path = request_args[1].split(IP)[1].strip()
 
-        print(method, path, body)
+        print(method, path, request_body)
+
         try:
             handler = self.route(method, path)
+            is_login_request = True
 
             token = ""
             if handler != self.handle_login:
+                is_login_request = False
+
                 for header in headers:
                     if header.lower().startswith("x-pico-token:"):
                         token = header.split(":", 1)[1].strip()
                         self.__session_manager.validate_token(token)
                         break
+
+            body = self.__cipher.decrypt_request(request_body, is_login_request)
 
             status, response, rotate_token = handler(body)
             custom_headers = None
@@ -147,7 +152,6 @@ class WebServer(object):
     # - method for login, sign-out, get, add, update, delete, validate input and return status and object
 
     """ POST /login """
-
     def handle_login(self, request_body: dict):
         # body: {"username": "encrypted username", "password": "encrypted password"}
 
@@ -156,7 +160,6 @@ class WebServer(object):
         return 200, {"token":  token}, False
 
     """ DELETE /signout """
-
     def handle_signout(self, request_body: dict):
         return 200, {"status": "Sign out successful."}, False
 
