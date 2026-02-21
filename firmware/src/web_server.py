@@ -37,15 +37,16 @@ class WebServer(object):
         await self.__server.wait_closed()
 
     async def manage_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-        print("New client")
-
         request_line, headers, request_body = await self.receive_request(reader)
+        print(request_line)
 
         request_args = request_line.split(" ")
         method = request_args[0]
         path = request_args[1].split(IP)[1].strip()
 
         print(method, path, request_body)
+        is_signout_request = True
+        session_id = ""
 
         try:
             handler = self.route(method, path)
@@ -55,29 +56,45 @@ class WebServer(object):
             if handler != self.handle_login:
                 is_login_request = False
 
+                found_token = False
+                found_session_id = False
                 for header in headers:
                     if header.lower().startswith("x-pico-token:"):
                         token = header.split(":", 1)[1].strip()
                         self.__session_manager.validate_token(token)
+                        found_token = True
+
+                    if header.lower().startswith("x-session-id:"):
+                        session_id = header.split(":", 1)[1].strip()
+                        found_session_id = True
+
+                    if found_token and found_session_id:
                         break
 
-            body = self.__cipher.decrypt_request(request_body, is_login_request)
+            if handler != self.handle_signout:
+                is_signout_request = False
+
+            body, session_id = self.__cipher.decrypt_request(request_body, session_id, is_login_request)
 
             status, response, rotate_token = handler(body)
             custom_headers = None
 
             if rotate_token:
                 custom_headers = {"X-Pico-Token": self.__session_manager.rotate_token(token)}
+
+            if handler == self.handle_login:
+                response["session"] = session_id
         except UnauthorizedAccessException as e:
             status = 401
             response = {"status": str(e)}
             custom_headers = None
         except Exception as e:
+            is_signout_request = False
             status = 404
             response = {"error": str(e)}
             custom_headers = None
 
-        await self.send_response(writer, status, self.__cipher.encrypt_response(response), custom_headers)
+        await self.send_response(writer, status, self.__cipher.encrypt_response(response, session_id, is_signout_request), custom_headers)
 
     async def receive_request(self, reader: asyncio.StreamReader) -> tuple[str, list[str], dict]:
         data = b""

@@ -1,3 +1,5 @@
+from src.config_private import USERS
+
 class UnauthorizedAccessException(Exception):
     def __init__(self, msg):
         super().__init__(f"Unauthorized access. {msg}")
@@ -5,11 +7,10 @@ class UnauthorizedAccessException(Exception):
 class SessionManager:
     def __init__(self):
         self.__tokens = []
-        self.__users = {"user1": "password1"}
         self.__i = 0
 
     def create_session(self, username, password) -> str:
-        if username in self.__users and password == self.__users[username]:
+        if username in USERS and password == USERS[username]:
             token = self.__generate_token()
             self.__tokens.append(token)
 
@@ -43,6 +44,6 @@ class SessionManager:
         if token not in self.__tokens:
             raise UnauthorizedAccessException("Invalid token.")
 
-        # return True  TODO check if token expired
+        # return True  TODO check if token expired, remove if it expired
 
         return False
