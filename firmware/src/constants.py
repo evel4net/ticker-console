@@ -1,5 +1,6 @@
 from dependencies.xglcd_font import XglcdFont
 from dependencies.ili9341 import color565
+from dependencies.ecc_pycrypto import P256
 
 # PINS
 LED = 1
@@ -18,6 +19,10 @@ CS_DUMMY = 0 # chip select (used display doesn't have CS)
 LOG_DAY_PATH = "./logs/days"
 LOG_TASK_PATH = "./logs/tasks"
 LOG_ERROR_PATH = "./logs/errors.txt"
+
+# WEB SERVER
+TOKEN_LIFETIME = 1800 # 30 mins
+ECC_CURVE = P256
 
 # FONTS
 class Font:
