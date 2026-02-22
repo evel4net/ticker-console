@@ -2,12 +2,12 @@ import hashlib
 import json
 import uos
 import ucryptolib
-import urandom
 
 import dependencies.ecc_pycrypto as ecc
 import dependencies.hmac as hmac
 from src.constants import ECC_CURVE
 from src.session_manager import UnauthorizedAccessException
+from src.utilities import generate_random_128_bits
 
 
 def aes_ctr_mode(aes_key: bytes, iv: bytes, text: bytes) -> bytes:
@@ -66,7 +66,11 @@ class Cipher(object):
             raise Exception(f"Private-public keypair not found. {e}")
 
     def __generate_session_id(self) -> str:
-        return urandom.getrandbits(128).to_bytes(16, "big").hex()
+        return generate_random_128_bits().hex()
+
+    def validate_session_id(self, session_id: str):
+        if session_id not in self.__aes_keys.keys():
+            raise UnauthorizedAccessException("Invalid session ID.")
 
     def login_client(self, client_pub: str) -> str:
         session_id = self.__generate_session_id()
@@ -102,6 +106,8 @@ class Cipher(object):
     """ AES ENCRYPTION / DECRYPTION """
 
     def encrypt_response(self, response: dict, session_id: str, is_signout_response: bool = False) -> dict:
+        self.validate_session_id(session_id)
+
         response_str = json.dumps(response)
         aes_iv, cipher_text, hmac_tag = encrypt_text(self.__aes_keys[session_id], response_str.encode())
 
@@ -116,6 +122,8 @@ class Cipher(object):
         if is_login_request:
             client_public_key = request_body["client_pub"]
             session_id = self.login_client(client_public_key)
+        else:
+            self.validate_session_id(session_id)
 
         cipher_text = bytes.fromhex(request_body["cipher_text"])
         aes_iv = bytes.fromhex(request_body["iv"])

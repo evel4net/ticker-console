@@ -1,4 +1,6 @@
 import collections
+
+import urandom
 import utime
 
 from src.config_private import UTC_OFFSET
@@ -121,3 +123,13 @@ def get_previous_day(date: Date) -> Date:
         day = get_number_days_in_month(month, year)
 
     return Date(day, month, year)
+
+# ---
+
+def generate_random_128_bits() -> bytes:
+    raw = b""
+
+    for i in range(4):
+        raw += urandom.getrandbits(32).to_bytes(16, "big")
+
+    return raw

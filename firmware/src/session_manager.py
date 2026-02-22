@@ -1,8 +1,8 @@
-import urandom
 import utime
 
 from src.config_private import USERS
 from src.constants import TOKEN_LIFETIME
+from src.utilities import generate_random_128_bits
 
 
 class UnauthorizedAccessException(Exception):
@@ -15,7 +15,7 @@ class SessionManager:
         self.__tokens = {} # token: created_at
 
     def __generate_token(self) -> str:
-        token = urandom.getrandbits(128).to_bytes(16, "big").hex()
+        token = generate_random_128_bits().hex()
         self.__tokens[token] = utime.time()
 
         return token
