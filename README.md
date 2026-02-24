@@ -12,7 +12,7 @@ The firmware is currently in development and is close to being finalized.
 ## Project Structure
 ```
 ticker-console/
-│
+├── docs/            # Documentation & Learning notes
 ├── firmware/        # Raspberry Pi Pico code
 │   ├── dependencies/
 │   ├── fonts/
