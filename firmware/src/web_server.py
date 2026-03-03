@@ -41,11 +41,11 @@ class WebServer(object):
     async def manage_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         # --- receive request
         request_line, headers, request_body = await self.receive_request(reader)
-        print(request_line)
 
         request_args = request_line.split(" ")
         method = request_args[0]
         path = request_args[1].split(IP)[1].strip()
+        print(method, path)
 
         token = None
         session_id = None
@@ -281,28 +281,28 @@ class WebServer(object):
     """ GET /tasks """
     def handle_get_tasks(self, request_body: dict):
         # body: {}
-        # response: {"task_id": {task_json}} -- return all tasks in memory, without the status
+        # response: [task_json] -- return all tasks in memory, without the status
 
         tasks = self.__repository.get_all_tasks()
-        tasks_json = {}
+        tasks_json = []
 
-        for id, task in tasks.items():
-            tasks_json[id] = task.to_json()
+        for task in tasks.values():
+            tasks_json.append(task.to_json())
 
         return "200 OK", { "status": "ok", "message": "Tasks retrieved successfully.", "data": tasks_json }, True
 
     """ GET /tasks/day """
     def handle_get_tasks_by_day(self, request_body: dict):
         # body: {"day": "dd_mm_yyyy"}
-        # response: {"id": {task json, "is_finished": bool}} -- return all tasks by date, with the status
+        # response: [{task json, "is_finished": bool}] -- return all tasks by date, with the status
 
         tasks = self.__repository.get_all_tasks_by_day(utilities.date_str_to_tuple(request_body["day"]))
-        tasks_json = {}
+        tasks_json = []
 
         for task, is_finished in tasks:
             task_json = task.to_json()
             task_json["is_finished"] = is_finished
 
-            tasks_json[task.id] = task_json
+            tasks_json.append(task_json)
 
         return "200 OK", { "status": "ok", "message": "Tasks retrieved successfully by date.", "data": tasks_json }, True
