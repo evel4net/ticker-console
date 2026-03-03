@@ -2,7 +2,7 @@ import asyncio
 import json
 
 from src.exceptions import InvalidRoute, InvalidCredentials, BadRequest, DecryptionError, InvalidSessionID, \
-    InvalidToken, ExpiredToken, NotFound, AlreadyExists
+    InvalidToken, ExpiredToken, NotFound, AlreadyExists, InvalidArguments
 from src.session_manager import SessionManager
 from src.task import Task
 from src.repository import Repository
@@ -128,6 +128,9 @@ class WebServer(object):
                     except AlreadyExists as e:
                         status_code = "409 Conflict"
                         response = { "status": "already_exists", "message": str(e) }
+                    except InvalidArguments as e:
+                        status_code = "400 Bad Request"
+                        response = { "status": "bad_request", "message": str(e) }
                     except Exception:
                         status_code = "500 Internal Server Error"
                         response = { "status": "server_error", "message": "An unexpected error occurred on the server." }

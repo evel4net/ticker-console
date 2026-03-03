@@ -5,6 +5,7 @@ import utime
 
 from src.config_private import UTC_OFFSET
 from src.constants import DATE_DELIMITER, MONTH_DAYS
+from src.exceptions import InvalidArguments
 
 Date = collections.namedtuple('Date', ('day', 'month', 'year'))
 
@@ -12,7 +13,10 @@ def date_tuple_to_str(date: Date, delimiter: str = DATE_DELIMITER) -> str:
     return f"{"0" + str(date[0]) if date[0] < 10 else str(date[0])}{delimiter}{"0" + str(date[1]) if date[1] < 10 else str(date[1])}{delimiter}{date[2]}"
 
 def date_str_to_tuple(date: str) -> Date:
-    day, month, year = map(int, date.split(DATE_DELIMITER))
+    try:
+        day, month, year = map(int, date.split(DATE_DELIMITER))
+    except Exception:
+        raise InvalidArguments("Date format is invalid.")
 
     return Date(day, month, year)
 
