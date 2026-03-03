@@ -1,7 +1,9 @@
 import asyncio
 import json
 
-from src.session_manager import SessionManager, UnauthorizedAccessException
+from src.exceptions import InvalidRoute, InvalidCredentials, BadRequest, DecryptionError, InvalidSessionID, \
+    InvalidToken, ExpiredToken, NotFound, AlreadyExists
+from src.session_manager import SessionManager
 from src.task import Task
 from src.repository import Repository
 from src.config_private import IP, PORT, SERVER_PRIV_PATH, SERVER_PUB_PATH
@@ -37,6 +39,7 @@ class WebServer(object):
         await self.__server.wait_closed()
 
     async def manage_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        # --- receive request
         request_line, headers, request_body = await self.receive_request(reader)
         print(request_line)
 
@@ -44,24 +47,41 @@ class WebServer(object):
         method = request_args[0]
         path = request_args[1].split(IP)[1].strip()
 
-        print(method, path, request_body)
-        is_signout_request = True
-        session_id = ""
+        token = None
+        session_id = None
+        response = None
+        custom_headers = None
+        is_signout = False
 
+        # --- process request
         try:
-            handler = self.route(method, path)
-            is_login_request = True
+            if (method, path) == ("POST", "/login"):
+                try:
+                    body, session_id = self.__cipher.decrypt_request(request_body, session_id, True) # DecryptionError/BadRequest (plain text)
 
-            token = ""
-            if handler != self.handle_login:
-                is_login_request = False
+                    try:
+                        status_code, response, rotate_token = self.route(method, path)(body) # InvalidCredentials (encrypted response) -> signout client
+                        response["session"] = session_id
+                    except InvalidCredentials:
+                        is_signout = True
+                        status_code = "401 Unauthorized"
+                        response = { "status": "invalid_credentials", "message": "The username or password is incorrect." }
 
+                    response = self.__cipher.encrypt_response(response, session_id, is_signout)
+                except DecryptionError:
+                    status_code = "401 Unauthorized"
+                    response = { "status": "decryption_error", "message": "The encrypted payload could not be processed." }
+                except BadRequest:
+                    status_code = "401 Unauthorized"
+                    response = { "status": "bad_request", "message": "The login request is incorrect." }
+            else:
+                # --- get token and session id if not login request
                 found_token = False
                 found_session_id = False
+
                 for header in headers:
                     if header.lower().startswith("x-pico-token:"):
                         token = header.split(":", 1)[1].strip()
-                        self.__session_manager.validate_token(token)
                         found_token = True
 
                     if header.lower().startswith("x-session-id:"):
@@ -71,30 +91,57 @@ class WebServer(object):
                     if found_token and found_session_id:
                         break
 
-            if handler != self.handle_signout:
-                is_signout_request = False
+                try:
+                    self.__cipher.validate_session_id(session_id) # InvalidSessionID (plaintext response)
 
-            body, session_id = self.__cipher.decrypt_request(request_body, session_id, is_login_request)
+                    try:
+                        self.__session_manager.validate_token(token) # InvalidToken/ExpiredToken (encrypted response) -> signout client
 
-            status, response, rotate_token = handler(body)
-            custom_headers = None
+                        body, _ = self.__cipher.decrypt_request(request_body, session_id) # DecryptionError (encrypted response) -> signout client
+                                                                                          # BadRequest (encrypted response)
 
-            if rotate_token:
-                custom_headers = {"X-Pico-Token": self.__session_manager.rotate_token(token)}
+                        handler = self.route(method, path)  # InvalidRoute (encrypted response)
+                        status_code, response, rotate_token = handler(body) # Exception (encrypted response)
 
-            if handler == self.handle_login:
-                response["session"] = session_id
-        except UnauthorizedAccessException as e:
-            status = 401
-            response = {"status": str(e)}
-            custom_headers = None
-        except Exception as e:
-            is_signout_request = False
-            status = 404
-            response = {"error": str(e)}
-            custom_headers = None
+                        if rotate_token:
+                            custom_headers = {"X-Pico-Token": self.__session_manager.rotate_token(token)}
 
-        await self.send_response(writer, status, self.__cipher.encrypt_response(response, session_id, is_signout_request), custom_headers)
+                        if handler == self.handle_signout:
+                            is_signout = True
+                    except (InvalidToken, ExpiredToken):
+                        is_signout = True
+                        status_code = "403 Forbidden"
+                        response = { "status": "invalid_token", "message": "Authentication token is missing, invalid or expired." }
+                    except DecryptionError:
+                        is_signout = True
+                        status_code = "403 Forbidden"
+                        response = { "status": "decryption_error", "message": "The encrypted payload could not be processed." }
+                    except BadRequest:
+                        status_code = "400 Bad Request"
+                        response = { "status": "bad_request", "message": "Malformed request syntax." }
+                    except InvalidRoute:
+                        status_code = "404 Not Found"
+                        response = { "status": "invalid_route", "message": "Endpoint does not exist." }
+                    except NotFound as e:
+                        status_code = "404 Not Found"
+                        response = { "status": "not_found", "message": str(e) }
+                    except AlreadyExists as e:
+                        status_code = "409 Conflict"
+                        response = { "status": "already_exists", "message": str(e) }
+                    except Exception:
+                        status_code = "500 Internal Server Error"
+                        response = { "status": "server_error", "message": "An unexpected error occurred on the server." }
+
+                    response = self.__cipher.encrypt_response(response, session_id, is_signout)
+                except InvalidSessionID:
+                    status_code = "401 Unauthorized"
+                    response = { "status": "invalid_session", "message": "The session ID is missing or invalid." }
+        except Exception:
+            status_code = "500 Internal Server Error"
+            response = { "status": "server_error", "message": "An unexpected error occurred on the server." }
+
+        # --- send response
+        await self.send_response(writer, status_code, response, custom_headers)
 
     async def receive_request(self, reader: asyncio.StreamReader) -> tuple[str, list[str], dict]:
         data = b""
@@ -133,10 +180,10 @@ class WebServer(object):
 
         return request_line, headers, json.loads(body)
 
-    async def send_response(self, writer: asyncio.StreamWriter, status: int, response: dict, custom_headers: dict = None) -> None:
+    async def send_response(self, writer: asyncio.StreamWriter, status: str, response: dict, custom_headers: dict = None) -> None:
         response_str = json.dumps(response)
 
-        response_msg = (f"HTTP/1.1 {status} OK\r\n"
+        response_msg = (f"HTTP/1.1 {status}\r\n"
                 "Server: RaspberryPi Pico 2W\r\n")
 
         if custom_headers:
@@ -156,6 +203,7 @@ class WebServer(object):
 
         print("Response sent. Connection closed.")
 
+
     """ ---------- ROUTER ---------- """
     # - receive method and path, return corresponding handler to server
 
@@ -163,7 +211,7 @@ class WebServer(object):
         if (method, path) in self.__handlers:
             return self.__handlers.get((method, path))
 
-        raise Exception("Request not found.")
+        raise InvalidRoute("Route not found.")
 
     """ ---------- HANDLERS ---------- """
     # - method for login, sign-out, get, add, update, delete, validate input and return status and object
@@ -174,11 +222,11 @@ class WebServer(object):
 
         token = self.__session_manager.create_session(request_body["username"], request_body["password"])
 
-        return 200, {"token":  token}, False
+        return "200 OK", { "status": "ok", "message": "Login successful.", "token":  token }, False
 
     """ DELETE /signout """
     def handle_signout(self, request_body: dict):
-        return 200, {"status": "Sign out successful."}, False
+        return "200 OK", { "status": "ok", "message": "Sign out successful." }, False
 
     """ POST /task """
     def handle_add_task(self, request_body: str):
@@ -187,7 +235,7 @@ class WebServer(object):
         new_task = Task(request_body["description"], utilities.date_str_to_tuple(request_body["start_date"]), utilities.date_str_to_tuple(request_body["end_date"]))
         self.__repository.add_task(new_task)
 
-        return 201, {"status": "Task added."}, True
+        return "201 Created", { "status": "ok", "message": "Task added successfully.", "details": new_task.to_json() }, True
 
     """ PATCH /task """
     def handle_update_task(self, request_body: dict):
@@ -207,16 +255,16 @@ class WebServer(object):
 
         self.__repository.update_task(task_id, new_description, new_start_date, new_end_date)
 
-        return 200, {"status": "Task updated."}, True
+        return "200 OK", { "status": "ok", "message": "Task updated successfully.", "details": self.__repository.get_task(task_id).to_json() }, True
 
     """ DELETE /task """
     def handle_delete_task(self, request_body: dict):
         # body: {"id": "id"}
 
         task_id = request_body["id"]
-        self.__repository.remove_task(task_id)
+        deleted_task = self.__repository.remove_task(task_id)
 
-        return 200, {"status": "Task deleted."}, True
+        return "200 OK", { "status": "ok", "message": "Task deleted successfully.", "details": deleted_task.to_json() }, True
 
     """ GET /task """
     def handle_get_task(self, request_body: dict):
@@ -225,7 +273,7 @@ class WebServer(object):
         id = request_body["id"]
         task = self.__repository.get_task(id)
 
-        return 200, task.to_json(), True
+        return "200 OK", { "status": "ok", "message": "Task retrieved successfully.", "data": task.to_json() }, True
 
     """ GET /tasks """
     def handle_get_tasks(self, request_body: dict):
@@ -238,7 +286,7 @@ class WebServer(object):
         for id, task in tasks.items():
             tasks_json[id] = task.to_json()
 
-        return 200, tasks_json, True
+        return "200 OK", { "status": "ok", "message": "Tasks retrieved successfully.", "data": tasks_json }, True
 
     """ GET /tasks/day """
     def handle_get_tasks_by_day(self, request_body: dict):
@@ -254,4 +302,4 @@ class WebServer(object):
 
             tasks_json[task.id] = task_json
 
-        return 200, tasks_json, True
+        return "200 OK", { "status": "ok", "message": "Tasks retrieved successfully by date.", "data": tasks_json }, True

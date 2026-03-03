@@ -3,12 +3,7 @@ import utime
 from src.config_private import USERS
 from src.constants import TOKEN_LIFETIME
 from src.utilities import generate_random_128_bits
-
-
-class UnauthorizedAccessException(Exception):
-    def __init__(self, msg):
-        super().__init__(f"Unauthorized access. {msg}")
-
+from src.exceptions import InvalidCredentials, InvalidToken, ExpiredToken
 
 class SessionManager:
     def __init__(self):
@@ -26,19 +21,17 @@ class SessionManager:
 
             return token
 
-        raise UnauthorizedAccessException("Invalid username or password.")
+        raise InvalidCredentials("Invalid username or password.")
 
     def validate_token(self, token: str):
         if token not in self.__tokens.keys():
-            raise UnauthorizedAccessException("Invalid token.")
+            raise InvalidToken("Token not found.")
 
         if utime.time() - self.__tokens[token] > TOKEN_LIFETIME:
             self.__tokens.pop(token)
-            raise UnauthorizedAccessException("Expired token.")
+            raise ExpiredToken("Token expired.")
 
     def rotate_token(self, old_token) -> str:
-        self.validate_token(old_token)
-
         self.__tokens.pop(old_token)
 
         token = self.__generate_token()

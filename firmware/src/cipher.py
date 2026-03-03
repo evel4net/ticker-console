@@ -6,8 +6,8 @@ import ucryptolib
 import dependencies.ecc_pycrypto as ecc
 import dependencies.hmac as hmac
 from src.constants import ECC_CURVE
-from src.session_manager import UnauthorizedAccessException
 from src.utilities import generate_random_128_bits
+from src.exceptions import InvalidSessionID, DecryptionError, ServerKeypairNotFound, BadRequest
 
 
 def aes_ctr_mode(aes_key: bytes, iv: bytes, text: bytes) -> bytes:
@@ -37,7 +37,7 @@ def decrypt_text(aes_key: bytes, iv: bytes, cipher_text: bytes, hmac_tag: bytes)
     hmac_expected = hmac.new(aes_key, iv + cipher_text, hashlib.sha256).digest()
 
     if hmac_expected != hmac_tag:
-        raise UnauthorizedAccessException("HMAC tag not corresponding.")
+        raise DecryptionError("HMAC tag not corresponding with received one.")
 
     plain_text = aes_ctr_mode(aes_key, iv, cipher_text)
 
@@ -62,15 +62,15 @@ class Cipher(object):
             pub = self.get_public_key_point(pub_hex)
 
             return priv, pub
-        except Exception as e:
-            raise Exception(f"Private-public keypair not found. {e}")
+        except FileNotFoundError:
+            raise ServerKeypairNotFound(f"Private-public server keypair not found.")
 
     def __generate_session_id(self) -> str:
         return generate_random_128_bits().hex()
 
     def validate_session_id(self, session_id: str):
         if session_id not in self.__aes_keys.keys():
-            raise UnauthorizedAccessException("Invalid session ID.")
+            raise InvalidSessionID("Session ID not found.")
 
     def login_client(self, client_pub: str) -> str:
         session_id = self.__generate_session_id()
@@ -118,17 +118,29 @@ class Cipher(object):
 
         return response_json
 
-    def decrypt_request(self, request_body: dict, session_id: str, is_login_request: bool = False) -> (dict, str):
-        if is_login_request:
-            client_public_key = request_body["client_pub"]
-            session_id = self.login_client(client_public_key)
-        else:
-            self.validate_session_id(session_id)
+    def decrypt_request(self, request_body: dict, session_id: str | None, is_login_request: bool = False) -> (dict, str):
+        try:
+            if is_login_request:
+                client_public_key = request_body["client_pub"]
+                session_id = self.login_client(client_public_key)
+            else:
+                self.validate_session_id(session_id)
 
-        cipher_text = bytes.fromhex(request_body["cipher_text"])
-        aes_iv = bytes.fromhex(request_body["iv"])
-        hmac_tag = bytes.fromhex(request_body["tag"])
+            cipher_text = bytes.fromhex(request_body["cipher_text"])
+            aes_iv = bytes.fromhex(request_body["iv"])
+            hmac_tag = bytes.fromhex(request_body["tag"])
 
-        plain_text = decrypt_text(self.__aes_keys[session_id], aes_iv, cipher_text, hmac_tag)
+            plain_text = decrypt_text(self.__aes_keys[session_id], aes_iv, cipher_text, hmac_tag)
 
-        return json.loads(plain_text.decode()), session_id
+            return json.loads(plain_text.decode()), session_id
+        except KeyError:
+            if is_login_request and session_id != None:
+                self.__aes_keys.pop(session_id)
+
+            raise BadRequest("Bad request json structure.")
+
+        except DecryptionError as e:
+            if is_login_request and session_id != None:
+                self.__aes_keys.pop(session_id)
+
+            raise DecryptionError(e)

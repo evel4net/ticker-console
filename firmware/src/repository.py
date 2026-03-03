@@ -1,6 +1,7 @@
 import json
 import os
 
+from src.exceptions import AlreadyExists, NotFound
 from src.task import Task
 from src.day import Day
 import src.utilities as utilities
@@ -99,26 +100,47 @@ class Repository(object):
         return tasks
 
     def get_day(self, date: Date) -> Day:
+        if date not in self.__days.keys():
+            raise NotFound("Day not found.")
+
         return self.__days[date]
 
     def get_task(self, task_id: str) -> Task:
+        if task_id not in self.__tasks.keys():
+            raise NotFound("Task not found.")
+
         return self.__tasks[task_id]
 
     def get_task_by_index(self, date: Date, index: int) -> Task:
-        return self.__tasks[self.__days[date].get_task_id_by_index(index)]
+        try:
+            return self.__tasks[self.__days[date].get_task_id_by_index(index)]
+        except Exception:
+            raise NotFound("Task not found in given day.")
 
     def get_task_id_by_index(self, date: Date, index: int) -> str:
-        return self.__days[date].get_task_id_by_index(index)
+        try:
+            return self.__days[date].get_task_id_by_index(index)
+        except Exception:
+            raise NotFound("Task not found in given day.")
 
     def get_count_tasks(self, date: Date) -> int:
+        if date not in self.__days.keys():
+            raise NotFound("Day not found.")
+
         return self.__days[date].get_count_tasks()
 
     def add_day(self, day: Day) -> None:
+        if day.date in self.__days.keys():
+            raise AlreadyExists("Date already exists.")
+
         self.__days[day.date] = day
 
         self.save_day(day)
 
     def add_task(self, task: Task) -> None:
+        if task.id is self.__tasks.keys():
+            raise AlreadyExists("Task already exists.")
+
         self.__tasks[task.id] = task
 
         for date in task.get_dates():
@@ -135,29 +157,40 @@ class Repository(object):
         else:
             self.add_day(Day(date, [task_id], [False]))
 
-
     def is_task_finished(self, date: Date, index: int) -> bool:
-        return self.__days[date].is_task_finished(index)
+        try:
+            return self.__days[date].is_task_finished(index)
+        except Exception:
+            raise NotFound("Task not found.")
 
     def set_task_finished(self, date: Date, index: int) -> None:
-        day = self.__days[date]
-        day.set_task_finished(index)
+        try:
+            day = self.__days[date]
+            day.set_task_finished(index)
+        except Exception:
+            raise NotFound("Task not found.")
 
         self.save_day(day)
 
-    def remove_task(self, id: str):
+    def remove_task(self, id: str) -> Task:
         task = self.__tasks.get(id)
 
         if not task:
-            raise Exception(f"Task with id {id} not found")
+            raise NotFound(f"Task not found")
 
         for date in task.get_dates():
             self.remove_task_from_date(id, date)
 
-        self.__tasks.pop(id)
+        return self.__tasks.pop(id)
         # TODO delete task file ? else it gets loaded when program starts
 
     def remove_task_from_date(self, task_id: str, date: Date):
+        if task_id not in self.__tasks.keys():
+            raise NotFound("Task not found.")
+
+        if date not in self.__days.keys():
+            raise NotFound("Day not found.")
+
         day = self.__days[date]
         day.remove_task(task_id)
         self.save_day(day) # TODO delete day and file if no more tasks
@@ -166,7 +199,7 @@ class Repository(object):
         task = self.__tasks.get(id)
 
         if not task:
-            raise Exception(f"Task with id {id} not found")
+            raise NotFound(f"Task not found")
 
         if description is not None:
             task.description = description

@@ -1,3 +1,4 @@
+from src.exceptions import InvalidArguments
 from src.utilities import Date
 
 class Validator(object):
@@ -7,18 +8,18 @@ class Validator(object):
 
     def validate_description(self, description: str) -> None:
         if not isinstance(description, str):
-            raise TypeError("Description is not string.")
+            raise InvalidArguments("Description should be a string.")
 
     def validate_dates(self, start_date: Date, end_date: Date) -> None:
         self.validate_date(start_date)
         self.validate_date(end_date)
 
         if not self.check_dates_comparison(start_date, end_date):
-            raise ValueError("Start day should be before the end day.")
+            raise InvalidArguments("Start day should be before the end day.")
 
     def validate_date(self, date: Date) -> None:
         if not self.check_date_type(date):
-            raise TypeError(f"{date} is not date.")
+            raise InvalidArguments(f"Date type is invalid.")
 
     # ---
 
